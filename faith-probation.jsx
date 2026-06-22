@@ -1,4 +1,3 @@
-import React, { useState, useMemo, useRef, useEffect } from "react";
 import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
   PieChart, Pie, Cell, LineChart, Line,
@@ -68,15 +67,15 @@ function tone(s) {
   return "kpi";
 }
 const TONE_CLASS = {
-  kpi: "bg-[#f3eff8] text-[#58499b] ring-[#d3c7df]",
-  review: "bg-[#e8f5fb] text-[#207caa] ring-[#bde3f4]",
-  accept: "bg-[#e4f8f1] text-[#15825f] ring-[#b8ead9]",
-  pending: "bg-[#fff3d6] text-[#9a6400] ring-[#f4cf72]",
-  letter: "bg-[#f3eff8] text-[#58499b] ring-[#d3c7df]",
-  sign: "bg-[#fbe9ec] text-[#c22d38] ring-[#efb9bf]",
-  confirmed: "bg-[#e4f8f1] text-[#15825f] ring-[#b8ead9]",
-  nconf: "bg-[#ffe9e3] text-[#b7432e] ring-[#f5beb0]",
-  terminated: "bg-[#eceff2] text-[#404040] ring-[#d5d9dd]",
+  kpi: "bg-[#EFE8FF] text-[#5D3FD3] ring-[#C3B1F5]",
+  review: "bg-[#E8F3FF] text-[#1A6ECC] ring-[#A8D1FF]",
+  accept: "bg-[#E8FAF4] text-[#1A7D5E] ring-[#A8E8D0]",
+  pending: "bg-[#FFF3D6] text-[#9A6400] ring-[#FFD98A]",
+  letter: "bg-[#EFE8FF] text-[#5D3FD3] ring-[#C3B1F5]",
+  sign: "bg-[#FCD9D9] text-[#C8102E] ring-[#F5A5A5]",
+  confirmed: "bg-[#E8FAF4] text-[#1A7D5E] ring-[#A8E8D0]",
+  nconf: "bg-[#FCD9D9] text-[#D62828] ring-[#F0AAAA]",
+  terminated: "bg-[#E0E0E0] text-[#4D4D4D] ring-[#B0B0B0]",
 };
 
 function monthFromStatus(s) {
@@ -214,6 +213,7 @@ const NAV = {
     ["sla", "SLA Tracker", Clock, "S-08"],
     ["audit", "Audit Trail", ScrollText, "S-09"],
     ["reports", "Reports & Analytics", BarChart3, "S-12"],
+    ["settings_upload", "Settings/Upload Document", FileText, "A-05"],
     ["console", "System Console", Settings, "A-01·02·04"],
   ],
   LEAD: [["reports", "Reports & Analytics", BarChart3, "S-12"]],
@@ -232,6 +232,48 @@ export default function App() {
   const [toast, setToast] = useState(null);
   const [banner, setBanner] = useState(true);
   const [roleMenu, setRoleMenu] = useState(false);
+  // demo accounts for impersonation / "view as"
+  const demoUsers = [
+    { id: "u-lm", role: "LM", name: LM_SELF, empId: "MANAGER-1" },
+    { id: "u-hrbp", role: "HRBP", name: HRBP_SELF, empId: "HRBP-1" },
+    { id: "u-dr", role: "DR", name: "Bryan Koh", empId: "EMP-1071" },
+    { id: "u-lead", role: "LEAD", name: "HR Director", empId: "LEAD-1" },
+  ];
+  const [currentUser, setCurrentUser] = useState(demoUsers[0]);
+  const [templates, setTemplates] = useState({ Conf: null, NConf: null, Ext: null });
+  // load persisted templates from localStorage on mount
+  useEffect(() => {
+    try {
+      const raw = localStorage.getItem("faith_templates");
+      if (raw) {
+        const parsed = JSON.parse(raw);
+        setTemplates(parsed);
+      }
+    } catch (e) { /* ignore */ }
+  }, []);
+
+  function uploadTemplate(type, file) {
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = () => {
+      const dataUrl = reader.result;
+      const tpl = { name: file.name, url: dataUrl };
+      setTemplates((t) => {
+        const next = { ...t, [type]: tpl };
+        try { localStorage.setItem("faith_templates", JSON.stringify(next)); } catch (e) { /* ignore */ }
+        return next;
+      });
+    };
+    reader.readAsDataURL(file);
+  }
+
+  function removeTemplate(type) {
+    setTemplates((t) => {
+      const next = { ...t, [type]: null };
+      try { localStorage.setItem("faith_templates", JSON.stringify(next)); } catch (e) { /* ignore */ }
+      return next;
+    });
+  }
 
   const log = (e) => setAudit((a) => [{ ...e, id: a.length + 1000 + Math.random() }, ...a]);
   const flash = (msg, kind = "ok") => { setToast({ msg, kind }); setTimeout(() => setToast(null), 2600); };
@@ -293,6 +335,9 @@ export default function App() {
     patch(id, (rec) => {
       rec.outcome = outcome; rec.letterType = lt; rec.letterId = "LTR-" + (2100 + rec.id);
       rec.legalReviewed = !!legal; rec.status = signStatus; rec.slaBreached = false;
+      // attach template metadata when available
+      const tpl = templates[outcome];
+      if (tpl) { rec.letterTemplate = tpl.name; rec.letterTemplateUrl = tpl.url; }
       return rec;
     }, [
       ev(HRBP_SELF, "letter-gen", `${label} letter generated (${lt})${outcome === "NConf" ? " · legal review passed" : ""}`, r.empId, r.status, letterStatus),
@@ -406,12 +451,32 @@ export default function App() {
     flash(breached ? `A-04 flagged ${breached} SLA breach(es)` : "A-04: all letters within SLA");
   }
 
+  /* ---------- RBAC helpers ---------------------------------------------- */
+  function canViewRecord(viewRole, user, rec) {
+    if (viewRole === "HRBP") return true;
+    if (viewRole === "LEAD") return true; // LEAD sees aggregates; keep records available for reports
+    if (viewRole === "LM") return rec.lm === user.name;
+    if (viewRole === "DR") return rec.empId === user.empId;
+    return false;
+  }
+  function canPerform(viewRole, user, rec, action) {
+    if (viewRole === "HRBP") return true;
+    if (viewRole === "LM") return rec.lm === user.name;
+    if (viewRole === "DR") return rec.empId === user.empId && ["acceptReview", "view"].includes(action);
+    return false;
+  }
+
+  // build a records view constrained by the currently selected role + account
+  const visibleRecords = (role === "LEAD")
+    ? records // leave full dataset for aggregated reports (UI components may redact names)
+    : records.filter((r) => canViewRecord(role, currentUser, r));
+
   const active = records.find((r) => r.id === activeId) || null;
 
   return (
-    <div className="min-h-screen w-full text-[#2f3033]" style={{ background: "var(--paper)", fontFamily: "var(--sans)" }}>
+    <div className="min-h-screen w-full text-[#4D4D4D]" style={{ background: "var(--paper)", fontFamily: "var(--sans)" }}>
       <StyleVars />
-      <header className="sticky top-0 z-40 flex items-center gap-3 px-4 sm:px-6 h-16 text-white shadow-sm" style={{ background: "linear-gradient(90deg, var(--brand-purple), var(--brand-red))" }}>
+      <header className="sticky top-0 z-40 flex items-center gap-3 px-4 sm:px-6 h-16 text-white shadow-sm" style={{ background: "linear-gradient(90deg, var(--brand-purple), var(--sky))" }}>
         <div className="flex items-center gap-3">
           <div className="grid place-items-center w-10 h-10 rounded-lg bg-white/95 ring-1 ring-white/40 overflow-hidden">
             <img src="/daythree-logo.png" alt="Daythree" className="h-6 w-9 object-contain object-left" />
@@ -421,7 +486,7 @@ export default function App() {
             <div className="text-[10px] uppercase tracking-[0.14em] text-white/70" style={{ fontFamily: "var(--mono)" }}>Daythree Workflow</div>
           </div>
         </div>
-        <div className="ml-auto flex items-center gap-2">
+          <div className="ml-auto flex items-center gap-2">
           <div className="hidden sm:flex items-center gap-1.5 text-white/55 text-xs px-2.5 py-1.5 rounded-md" style={{ background: "rgba(255,255,255,.07)", fontFamily: "var(--mono)" }}><Calendar size={13} /> {TODAY}</div>
           <div className="relative">
             <button onClick={() => setRoleMenu((v) => !v)} className="flex items-center gap-2 pl-2.5 pr-2 py-1.5 rounded-md text-sm font-medium" style={{ background: "rgba(255,255,255,.12)" }}>
@@ -438,7 +503,7 @@ export default function App() {
                     const I = R.icon; const on = R.id === role;
                     return (
                       <button key={R.id} onClick={() => switchRole(R.id)} className={`w-full flex items-center gap-3 px-3.5 py-2.5 text-left hover:bg-slate-50 ${on ? "bg-slate-50" : ""}`}>
-                        <div className="grid place-items-center w-8 h-8 rounded-md shrink-0" style={{ background: on ? "var(--brand)" : "#eef2f7", color: on ? "white" : "#334155" }}><I size={16} /></div>
+                        <div className="grid place-items-center w-8 h-8 rounded-md shrink-0" style={{ background: on ? "var(--brand)" : "#F4F4F4", color: on ? "white" : "#334155" }}><I size={16} /></div>
                         <div className="min-w-0">
                           <div className="text-sm font-medium flex items-center gap-2">{R.label}{on && <span className="text-[10px] text-emerald-600 font-semibold">ACTIVE</span>}</div>
                           <div className="text-xs text-slate-500">{R.scope}{R.who !== "self" && ` · ${R.who}`}</div>
@@ -446,6 +511,16 @@ export default function App() {
                       </button>
                     );
                   })}
+                  <div className="px-3.5 py-2.5 text-[11px] uppercase tracking-wider text-slate-400 border-t border-b border-slate-100" style={{ fontFamily: "var(--mono)" }}>View as account</div>
+                  {demoUsers.map((u) => (
+                    <button key={u.id} onClick={() => { setCurrentUser(u); setRole(u.role); setRoleMenu(false); }} className={`w-full flex items-center gap-3 px-3.5 py-2.5 text-left hover:bg-slate-50`}> 
+                      <div className="grid place-items-center w-8 h-8 rounded-md shrink-0" style={{ background: "#F4F4F4", color: "#334155" }}>{u.name[0]}</div>
+                      <div className="min-w-0">
+                        <div className="text-sm font-medium">{u.name} <span className="text-xs text-slate-400">· {u.role}</span></div>
+                        <div className="text-xs text-slate-500">{u.empId}</div>
+                      </div>
+                    </button>
+                  ))}
                 </div>
               </>
             )}
@@ -490,13 +565,14 @@ export default function App() {
           {role === "HRBP" && view === "sla" && <SLATracker records={records} />}
           {role === "HRBP" && view === "audit" && <AuditTrail audit={audit} />}
           {role === "HRBP" && view === "reports" && <Reports records={records} role="HRBP" onReportExport={reportExport} />}
-          {role === "HRBP" && view === "console" && <SystemConsole onScheduler={runScheduler} onAutoAccept={runAutoAccept} onSla={runSlaCheck} records={records} />}
+          {role === "HRBP" && view === "settings_upload" && <HRBPTemplates templates={templates} onUploadTemplate={uploadTemplate} onRemoveTemplate={removeTemplate} />}
+          {role === "HRBP" && view === "console" && <SystemConsole onScheduler={runScheduler} onAutoAccept={runAutoAccept} onSla={runSlaCheck} records={visibleRecords} templates={templates} onUploadTemplate={uploadTemplate} onRemoveTemplate={removeTemplate} />}
           {role === "LEAD" && view === "reports" && <Reports records={records} role="LEAD" onReportExport={reportExport} />}
         </main>
       </div>
 
       {toast && (
-        <div className="fixed bottom-5 left-1/2 -translate-x-1/2 z-50 flex items-center gap-2.5 rounded-xl px-4 py-3 text-sm text-white shadow-lg" style={{ background: toast.kind === "ok" ? "#0f766e" : "#b91c1c" }}>
+        <div className="fixed bottom-5 left-1/2 -translate-x-1/2 z-50 flex items-center gap-2.5 rounded-xl px-4 py-3 text-sm text-white shadow-lg" style={{ background: toast.kind === "ok" ? "var(--mint)" : "var(--crimson)" }}>
           <CheckCircle2 size={17} /> {toast.msg}
         </div>
       )}
@@ -511,20 +587,25 @@ function StyleVars() {
   return (
     <style>{`
       :root{
-        --brand:#5d55a3; --brand-2:#c22d38; --brand-purple:#5d55a3; --brand-red:#c22d38;
-        --mint:#68d8ad; --sky:#53b7df; --coral:#ff7f66; --amber:#f7bf43;
-        --charcoal:#2f3033; --graphite:#4b4b4f; --paper:#f9f9f9; --smoke:#eef0f2; --lavender:#d3c7df;
+        /* Primary: purple + sky blue */
+        --brand:#5D3FD3; --brand-purple:#5D3FD3; --sky:#409CFF; --brand-2:#C8102E; --brand-red:#C8102E;
+        /* Alerts and accents */
+        --mint:#3CC49F; --amber:#FFB84D; --crimson:#C8102E; --coral:#FF9E3D;
+        /* Typography and surfaces */
+        --charcoal:#2F3438; --graphite:#333333; --paper:#f9f9f9; --smoke:#F4F4F4; --lavender:#C3B1F5;
+        /* Utility */
+        --hover-tint: rgba(16,24,40,0.04);
         --sans:"Source Sans 3","Source Sans Pro",ui-sans-serif,system-ui,-apple-system,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
         --mono:ui-monospace,"SF Mono",Menlo,Monaco,"Cascadia Code","Roboto Mono",monospace; }
       *{ -webkit-font-smoothing:antialiased; }
       body{ background:var(--paper); }
-      button:focus-visible{ box-shadow:0 0 0 3px rgba(194,45,56,.26); border-radius:8px; outline:none; }
+      button:focus-visible{ box-shadow:0 0 0 3px rgba(93,63,211,.18); border-radius:8px; outline:none; }
       @keyframes fadeUp{ from{ opacity:0; transform:translateY(6px);} to{ opacity:1; transform:none;} }
       .fadeUp{ animation:fadeUp .25s ease both; }
       .brand-card{ border-color:rgba(211,199,223,.82); box-shadow:0 10px 24px rgba(47,48,51,.06); }
       .recharts-tooltip-wrapper .recharts-default-tooltip{ border:1px solid var(--lavender)!important; border-radius:8px!important; box-shadow:0 10px 24px rgba(47,48,51,.10)!important; }
       ::-webkit-scrollbar{ width:10px; height:10px; }
-      ::-webkit-scrollbar-thumb{ background:#d3c7df; border-radius:8px; border:2px solid var(--paper); }
+      ::-webkit-scrollbar-thumb{ background:#C3B1F5; border-radius:8px; border:2px solid var(--paper); }
       @media (prefers-reduced-motion: reduce){ .fadeUp{ animation:none; } }
     `}</style>
   );
@@ -539,9 +620,9 @@ function PageHead({ code, title, sub, right }) {
   return (
     <div className="mb-5 flex items-end justify-between gap-4 flex-wrap">
       <div>
-        <Mono className="text-[11px] font-semibold tracking-wide text-[#c22d38] bg-[#fbe9ec] px-1.5 py-0.5 rounded ring-1 ring-[#efb9bf]">{code}</Mono>
-        <h1 className="text-[22px] font-semibold tracking-tight text-[#2f3033] mt-1.5">{title}</h1>
-        {sub && <p className="text-sm text-[#64666a] mt-0.5 max-w-2xl">{sub}</p>}
+        <Mono className="text-[11px] font-semibold tracking-wide text-[#C8102E] bg-[#FCD9D9] px-1.5 py-0.5 rounded ring-1 ring-[#F5A5A5]">{code}</Mono>
+        <h1 className="text-[22px] font-semibold tracking-tight text-[#4D4D4D] mt-1.5">{title}</h1>
+        {sub && <p className="text-sm text-[#6E6E6E] mt-0.5 max-w-2xl">{sub}</p>}
       </div>
       {right}
     </div>
@@ -552,12 +633,12 @@ function Btn({ children, onClick, variant = "primary", size = "md", disabled, ic
   const sizes = { md: "px-3.5 py-2 text-sm", sm: "px-2.5 py-1.5 text-xs", lg: "px-4 py-2.5 text-sm" };
   const styles = {
     primary: "text-white hover:brightness-110",
-    ghost: "text-[#4b4b4f] ring-1 ring-[#d3c7df] hover:bg-[#f9f6fb] bg-white",
-    danger: "text-white bg-[#c22d38] hover:brightness-110",
-    soft: "text-[#58499b] bg-[#f3eff8] ring-1 ring-[#d3c7df] hover:bg-[#ede6f3]",
+    ghost: "text-[#4D4D4D] ring-1 ring-[#C3B1F5] hover:bg-[#EFE8FF] bg-white",
+    danger: "text-white bg-[#C8102E] hover:brightness-110",
+    soft: "text-[#5D3FD3] bg-[#EFE8FF] ring-1 ring-[#C3B1F5] hover:bg-[#E0D6FF]",
   };
   return (
-    <button onClick={onClick} disabled={disabled} className={`inline-flex items-center justify-center gap-2 font-medium rounded-lg transition disabled:opacity-40 disabled:cursor-not-allowed ${sizes[size]} ${styles[variant]} ${className}`} style={variant === "primary" ? { background: "linear-gradient(90deg, var(--brand-purple), var(--brand-red))" } : {}}>
+    <button onClick={onClick} disabled={disabled} className={`inline-flex items-center justify-center gap-2 font-medium rounded-lg transition disabled:opacity-40 disabled:cursor-not-allowed ${sizes[size]} ${styles[variant]} ${className}`} style={variant === "primary" ? { background: "linear-gradient(90deg, var(--brand-purple), var(--sky))" } : {}}>
       {Icon && <Icon size={size === "sm" ? 14 : 16} />} {children}
     </button>
   );
@@ -584,7 +665,7 @@ function Row({ k, v }) { return <div className="flex justify-between gap-3"><dt 
 function RpmDots({ score }) {
   return (
     <div className="flex items-center gap-0.5">
-      {[1, 2, 3, 4, 5].map((i) => <div key={i} className={`w-2.5 h-2.5 rounded-sm ${i <= score ? (score >= 3 ? "bg-[#68d8ad]" : "bg-[#c22d38]") : "bg-[#eef0f2]"}`} />)}
+      {[1, 2, 3, 4, 5].map((i) => <div key={i} className={`w-2.5 h-2.5 rounded-sm ${i <= score ? (score >= 3 ? "bg-[#3CC49F]" : "bg-[#C8102E]") : "bg-[#F4F4F4]"}`} />)}
       <Mono className="ml-1.5 text-xs text-slate-500">{score}/5</Mono>
     </div>
   );
@@ -607,12 +688,12 @@ function LifecycleRail({ rec }) {
           return (
             <div key={s.key} className="flex items-center">
               <div className="flex flex-col items-center w-[88px] text-center">
-                <div className={`grid place-items-center w-7 h-7 rounded-full text-[11px] font-semibold ring-2 transition ${past ? "bg-[#68d8ad] text-[#134d3a] ring-[#68d8ad]" : ""} ${isCur ? "text-white ring-[#c22d38]" : ""} ${future ? "bg-white text-slate-300 ring-[#d3c7df]" : ""}`} style={isCur ? { background: "var(--brand-red)" } : {}}>
+                <div className={`grid place-items-center w-7 h-7 rounded-full text-[11px] font-semibold ring-2 transition ${past ? "bg-[#3CC49F] text-[#0F4B37] ring-[#3CC49F]" : ""} ${isCur ? "text-white ring-[#C8102E]" : ""} ${future ? "bg-white text-slate-300 ring-[#C3B1F5]" : ""}`} style={isCur ? { background: "var(--brand-red)" } : {}}>
                   {past ? <CheckCircle2 size={15} /> : i + 1}
                 </div>
-                <div className={`mt-1.5 text-[10.5px] leading-tight ${isCur ? "text-[#c22d38] font-semibold" : past ? "text-[#4b4b4f]" : "text-slate-400"}`}>{s.label}</div>
+                <div className={`mt-1.5 text-[10.5px] leading-tight ${isCur ? "text-[#C8102E] font-semibold" : past ? "text-[#4D4D4D]" : "text-slate-400"}`}>{s.label}</div>
               </div>
-              {i < stages.length - 1 && <div className={`h-0.5 w-5 -mt-4 ${i < curIdx || done ? "bg-[#68d8ad]" : "bg-[#d3c7df]"}`} />}
+              {i < stages.length - 1 && <div className={`h-0.5 w-5 -mt-4 ${i < curIdx || done ? "bg-[#3CC49F]" : "bg-[#C3B1F5]"}`} />}
             </div>
           );
         })}
@@ -684,9 +765,9 @@ function LMDashboard({ records, onOpen, onAdd }) {
 }
 function Stat({ label, value, icon: Icon, tone = "slate" }) {
   const tones = {
-    slate: "text-[#58499b] bg-[#f3eff8]",
-    amber: "text-[#9a6400] bg-[#fff3d6]",
-    emerald: "text-[#15825f] bg-[#e4f8f1]",
+    slate: "text-[#5D3FD3] bg-[#EFE8FF]",
+    amber: "text-[#9A6400] bg-[#FFF3D6]",
+    emerald: "text-[#1A7D5E] bg-[#E8FAF4]",
   };
   return (
     <Card className="px-4 py-3.5 flex items-center gap-3">
@@ -1020,7 +1101,7 @@ function SignaturePad({ value, onChange }) {
     ctx.lineCap = "round";
     ctx.lineJoin = "round";
     ctx.lineWidth = 2.4;
-    ctx.strokeStyle = "#334155";
+    ctx.strokeStyle = "#4D4D4D";
     ctx.fillStyle = "#fff";
     ctx.fillRect(0, 0, rect.width, rect.height);
     if (value) {
@@ -1220,7 +1301,8 @@ function AuditTrail({ audit }) {
 /* ============================================================================
    SYSTEM CONSOLE · A-01 / A-02 / A-04
    ========================================================================== */
-function SystemConsole({ onScheduler, onAutoAccept, onSla, records }) {
+function SystemConsole({ onScheduler, onAutoAccept, onSla, records, templates, onUploadTemplate, onRemoveTemplate }) {
+
   const actions = [
     { code: "A-01", title: "Review cycle scheduler", desc: "Daily clock job. Fires Day-31 (Month 1) and Day-61 (Month 2) triggers; chains Months 3–6 on prior acceptance.", btn: "Run scheduler", icon: RefreshCw, fn: onScheduler, count: records.filter((r) => r.status === "KPI-Review" && r.kpis.length).length, countLabel: "armed for Day-31" },
     { code: "A-02", title: "7-day auto-accept", desc: "If a direct report does not acknowledge within 7 days, the system auto-accepts and logs the actor as System.", btn: "Run auto-accept", icon: Clock, fn: onAutoAccept, count: records.filter((r) => /-DR-Acpt$/.test(r.status)).length, countLabel: "open windows" },
@@ -1238,6 +1320,191 @@ function SystemConsole({ onScheduler, onAutoAccept, onSla, records }) {
             <div className="flex items-center justify-between"><Mono className="text-xs text-slate-400">{a.count} {a.countLabel}</Mono><Btn size="sm" icon={Play} onClick={a.fn}>{a.btn}</Btn></div>
           </Card>
         ))}
+      </div>
+      <div className="mt-6 grid md:grid-cols-2 gap-4">
+        <Card className="p-5">
+          <div className="flex items-center justify-between mb-3"><div className="text-sm font-semibold text-slate-800">HRBP Settings</div><Mono className="text-[11px] text-slate-400">Letter templates</Mono></div>
+          <p className="text-sm text-slate-500 mb-4">Upload or remove the letter templates used for Confirmations, Non-Confirmations and Extensions. Files are stored in-memory for this prototype.</p>
+          <div className="space-y-3">
+              {[["Conf","Confirmation"],["NConf","Non-Confirmation"],["Ext","Extension"]].map(([k,label]) => (
+              <div key={k} className="flex items-center gap-3 justify-between">
+                <div>
+                  <div className="text-sm font-medium">{label}</div>
+                  <div className="text-xs text-slate-500">Template code: {k}</div>
+                </div>
+                <div className="flex items-center gap-2">
+                  {templates && templates[k] ? (
+                    <>
+                      <a href={templates[k].url} download={templates[k].name} target="_blank" rel="noreferrer" className="text-sm text-slate-700 hover:underline">{templates[k].name}</a>
+                      <input id={`file-${k}`} type="file" className="hidden" onChange={(e) => onUploadTemplate(k, e.target.files[0])} />
+                      <label htmlFor={`file-${k}`} className="text-xs text-slate-500 underline cursor-pointer">Replace</label>
+                      <button onClick={() => onRemoveTemplate(k)} className="ml-2 text-xs text-white bg-[#C8102E] px-2 py-1 rounded">Remove</button>
+                    </>
+                  ) : (
+                    <>
+                      <input id={`file-${k}`} type="file" className="hidden" onChange={(e) => onUploadTemplate(k, e.target.files[0])} />
+                      <label htmlFor={`file-${k}`} className="text-sm text-white bg-[#5D3FD3] px-3 py-1 rounded cursor-pointer">Upload</label>
+                    </>
+                  )}
+                </div>
+              </div>
+            ))}
+          </div>
+        </Card>
+
+        <Card className="p-5">
+          <div className="flex items-center justify-between mb-3"><div className="text-sm font-semibold text-slate-800">Template preview</div><Mono className="text-[11px] text-slate-400">Download / inspect</Mono></div>
+          <div className="text-sm text-slate-500 mb-3">Quick access to the currently uploaded templates. Use these files when generating letters in `Pipeline`.</div>
+          <div className="space-y-3">
+            {Object.entries(templates).map(([k,v]) => (
+              <div key={k} className="flex items-center justify-between">
+                <div className="text-sm">{k}</div>
+                <div>
+                  {v ? <a href={v.url} download={v.name} target="_blank" rel="noreferrer" className="text-sm text-slate-700 hover:underline">Download</a> : <span className="text-xs text-slate-400">No template</span>}
+                </div>
+              </div>
+            ))}
+          </div>
+        </Card>
+      </div>
+    </div>
+  );
+}
+
+/* ==========================================================================
+   HRBP Templates / Settings (separate page)
+   ========================================================================== */
+function HRBPTemplates({ templates, onUploadTemplate, onRemoveTemplate }) {
+  const [activeTab, setActiveTab] = useState("documents");
+  const [hasChanges, setHasChanges] = useState(false);
+  const [saving, setSaving] = useState(false);
+  
+  // Internal config state for demo
+  const [config, setConfig] = useState({
+    autoAccept: true,
+    hodVerification: true,
+    slaDays: 5,
+    notifications: "daily"
+  });
+
+  const updateConfig = (k, v) => {
+    setConfig({ ...config, [k]: v });
+    setHasChanges(true);
+  };
+
+  const save = () => {
+    setSaving(true);
+    setTimeout(() => { setSaving(false); setHasChanges(false); }, 800);
+  };
+
+  return (
+    <div className="fadeUp">
+      <PageHead code="A-05" title="Settings / Documents" sub="Global configuration and template repository for the FAITH probation engine." />
+      
+      {/* Sub-tabs */}
+      <div className="flex gap-1 bg-slate-100 p-1 rounded-xl w-fit mb-6 shadow-sm border border-slate-200">
+        <button onClick={() => setActiveTab("documents")} className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition ${activeTab === 'documents' ? 'bg-white text-indigo-600 shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}>
+          <FileText size={16} /> Document Center
+        </button>
+        <button onClick={() => setActiveTab("settings")} className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition ${activeTab === 'settings' ? 'bg-white text-indigo-600 shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}>
+          <Settings size={16} /> Workflow Config
+        </button>
+      </div>
+
+      <div className="grid lg:grid-cols-3 gap-6">
+        <div className="lg:col-span-2 space-y-6">
+          {activeTab === "documents" ? (
+            <div className="space-y-6 animate-in fade-in duration-300">
+              {[['Conf','Acceptance', '#3CC49F'],['Ext','Extension', '#FFB84D'],['NConf','Rejection', '#C8102E']].map(([k,label, color]) => (
+                <Card key={k} className="p-0 overflow-hidden border-l-4" style={{ borderColor: color }}>
+                  <div className="px-5 py-4 border-b border-slate-100 flex items-center justify-between bg-slate-50/50">
+                    <div className="font-semibold text-slate-800">{label} Templates</div>
+                    <div className="flex items-center gap-2">
+                      <input id={`tpl-${k}`} type="file" className="hidden" onChange={(e) => { onUploadTemplate(k, e.target.files[0]); setHasChanges(true); }} />
+                      <label htmlFor={`tpl-${k}`} className="text-sm text-white bg-[#5D3FD3] px-3 py-1.5 rounded-lg cursor-pointer hover:opacity-90 transition shadow-sm flex items-center gap-1">
+                        <Upload size={14} /> Upload
+                      </label>
+                    </div>
+                  </div>
+                  <div className="divide-y divide-slate-100 min-h-[60px]">
+                    {templates && templates[k] ? (
+                      <div className="px-5 py-3.5 flex items-center justify-between">
+                        <div className="flex items-center gap-3 text-sm font-medium"><FileText size={16} className="text-slate-400" /> {templates[k].name}</div>
+                        <button onClick={() => { onRemoveTemplate(k); setHasChanges(true); }} className="text-slate-300 hover:text-rose-600 p-2"><Trash2 size={16} /></button>
+                      </div>
+                    ) : (
+                      <div className="p-6 text-center text-xs text-slate-400 italic">No template uploaded</div>
+                    )}
+                  </div>
+                </Card>
+              ))}
+            </div>
+          ) : (
+            <div className="space-y-6 animate-in fade-in duration-300">
+              <Card className="p-6">
+                <div className="font-semibold text-slate-800 mb-4 pb-2 border-b border-slate-50 flex items-center gap-2"><ShieldCheck size={18} className="text-indigo-600" /> Automation Logic</div>
+                <div className="space-y-5">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <div className="text-sm font-medium text-slate-700">7-Day Auto-Acceptance</div>
+                      <div className="text-xs text-slate-500">Enable automatic system signing if DR doesn't act within SLA.</div>
+                    </div>
+                    <button onClick={() => updateConfig('autoAccept', !config.autoAccept)} className={`w-10 h-5 rounded-full relative transition ${config.autoAccept ? 'bg-emerald-500' : 'bg-slate-200'}`}>
+                      <div className={`absolute top-0.5 w-4 h-4 bg-white rounded-full shadow transition-all ${config.autoAccept ? 'left-[22px]' : 'left-0.5'}`} />
+                    </button>
+                  </div>
+                  <div className="flex items-center justify-between border-t border-slate-50 pt-4">
+                    <div>
+                      <div className="text-sm font-medium text-slate-700">HOD Verification</div>
+                      <div className="text-xs text-slate-500">Require Head of Dept approval for all Acting Role outcomes.</div>
+                    </div>
+                    <button onClick={() => updateConfig('hodVerification', !config.hodVerification)} className={`w-10 h-5 rounded-full relative transition ${config.hodVerification ? 'bg-emerald-500' : 'bg-slate-200'}`}>
+                      <div className={`absolute top-0.5 w-4 h-4 bg-white rounded-full shadow transition-all ${config.hodVerification ? 'left-[22px]' : 'left-0.5'}`} />
+                    </button>
+                  </div>
+                </div>
+              </Card>
+
+              <Card className="p-6">
+                <div className="font-semibold text-slate-800 mb-4 pb-2 border-b border-slate-50 flex items-center gap-2"><Bell size={18} className="text-indigo-600" /> SLA & Alerts</div>
+                <div className="space-y-5">
+                  <div>
+                    <div className="text-sm font-medium text-slate-700 mb-2">Letter Generation SLA: {config.slaDays} Days</div>
+                    <input type="range" min="3" max="10" value={config.slaDays} onChange={(e) => updateConfig('slaDays', parseInt(e.target.value))} className="w-full accent-indigo-600" />
+                  </div>
+                  <div className="flex items-center justify-between border-t border-slate-50 pt-4 text-sm">
+                    <span className="text-slate-700">Audit Summary Frequency</span>
+                    <select value={config.notifications} onChange={(e) => updateConfig('notifications', e.target.value)} className="bg-slate-100 border-none rounded-md px-2 py-1 text-xs outline-none">
+                      <option value="none">None</option>
+                      <option value="daily">Daily</option>
+                      <option value="weekly">Weekly</option>
+                    </select>
+                  </div>
+                </div>
+              </Card>
+            </div>
+          )}
+        </div>
+
+        <div className="space-y-4">
+          <Card className="p-5">
+            <div className="flex items-center gap-2 font-semibold mb-3">
+              <AlertCircle size={16} className="text-amber-500" />
+              <span>Pending Changes</span>
+            </div>
+            <p className="text-xs text-slate-500 mb-4 leading-relaxed">Changes across all tabs are staged until you confirm. Staging allows bulk updates to the workflow engine.</p>
+            <Btn className="w-full" disabled={!hasChanges || saving} onClick={save}>
+              {saving ? "Saving..." : "Confirm All Changes"}
+            </Btn>
+            {!hasChanges && <div className="text-[10px] text-slate-400 text-center mt-2 font-medium">System up-to-date</div>}
+          </Card>
+          
+          <Card className="p-5 bg-gradient-to-br from-indigo-500 to-violet-600 border-0 text-white">
+            <div className="font-semibold mb-1">Blob Storage</div>
+            <div className="text-xs text-white/80 mb-4">42.8 MB of 500 MB used.</div>
+            <div className="h-1.5 w-full bg-white/20 rounded-full overflow-hidden mb-3"><div className="h-full bg-white w-[8%]" /></div>
+          </Card>
+        </div>
       </div>
     </div>
   );
@@ -1312,11 +1579,11 @@ function R01({ records, aggregate, role, onReportExport }) {
         <div className="lg:col-span-2 h-64">
           <ResponsiveContainer width="100%" height="100%">
             <BarChart data={data} margin={{ top: 8, right: 8, bottom: 8, left: -16 }}>
-              <CartesianGrid strokeDasharray="3 3" stroke="#eef0f2" vertical={false} />
-              <XAxis dataKey="name" tick={{ fontSize: 11, fill: "#64666a" }} interval={0} angle={-12} textAnchor="end" height={50} />
-              <YAxis tick={{ fontSize: 11, fill: "#8f9298" }} allowDecimals={false} />
+              <CartesianGrid strokeDasharray="3 3" stroke="#E0E0E0" vertical={false} />
+              <XAxis dataKey="name" tick={{ fontSize: 11, fill: "#6E6E6E" }} interval={0} angle={-12} textAnchor="end" height={50} />
+              <YAxis tick={{ fontSize: 11, fill: "#9D9990" }} allowDecimals={false} />
               <Tooltip />
-              <Bar dataKey="value" radius={[4, 4, 0, 0]} fill="#5d55a3" />
+              <Bar dataKey="value" radius={[4, 4, 0, 0]} fill="#5D3FD3" />
             </BarChart>
           </ResponsiveContainer>
         </div>
@@ -1343,7 +1610,7 @@ function R02({ records, role, onReportExport }) {
     </ReportShell>
   );
 }
-const PIE_COLORS = ["#68d8ad", "#f7bf43", "#c22d38", "#5d55a3", "#53b7df", "#ff7f66"];
+const PIE_COLORS = ["#3CC49F", "#FFB84D", "#C8102E", "#5D3FD3", "#409CFF", "#FF9E3D"];
 function R03({ records, role, onReportExport }) {
   const outcomes = { Confirmed: 0, Extension: 0, "Not Confirmed": 0, "Early Confirmation": 0 };
   records.forEach((r) => {
@@ -1374,7 +1641,7 @@ function R04({ records, role, onReportExport }) {
   return (
     <ReportShell code="R-04" title="RPM Score Trends" onExport={exp}>
       <div className="flex items-center gap-2 mb-3 text-sm"><Tag className="bg-rose-50 text-rose-600">Below-threshold reviews: {belowTotal}</Tag></div>
-      <div className="h-60"><ResponsiveContainer width="100%" height="100%"><LineChart data={data} margin={{ top: 8, right: 12, bottom: 8, left: -16 }}><CartesianGrid strokeDasharray="3 3" stroke="#eef0f2" vertical={false} /><XAxis dataKey="cycle" tick={{ fontSize: 11, fill: "#64666a" }} /><YAxis domain={[0, 5]} tick={{ fontSize: 11, fill: "#8f9298" }} /><Tooltip /><Line type="monotone" dataKey="avg" stroke="#53b7df" strokeWidth={2.5} dot={{ r: 4, fill: "#53b7df", stroke: "#ffffff", strokeWidth: 2 }} name="Avg RPM" /></LineChart></ResponsiveContainer></div>
+      <div className="h-60"><ResponsiveContainer width="100%" height="100%"><LineChart data={data} margin={{ top: 8, right: 12, bottom: 8, left: -16 }}><CartesianGrid strokeDasharray="3 3" stroke="#E0E0E0" vertical={false} /><XAxis dataKey="cycle" tick={{ fontSize: 11, fill: "#6E6E6E" }} /><YAxis domain={[0, 5]} tick={{ fontSize: 11, fill: "#9D9990" }} /><Tooltip /><Line type="monotone" dataKey="avg" stroke="#409CFF" strokeWidth={2.5} dot={{ r: 4, fill: "#409CFF", stroke: "#ffffff", strokeWidth: 2 }} name="Avg RPM" /></LineChart></ResponsiveContainer></div>
     </ReportShell>
   );
 }
@@ -1491,7 +1758,7 @@ function ReviewModal({ rec, month, onClose, onSubmit }) {
       <div className="text-sm text-slate-500 mb-4">{rec.name} · {rec.empId} · cycle {month} of {rec.phase === "EXT" ? 3 : totalCycles(rec)}</div>
       <div className="space-y-4">
         <Field label="RPM rating (1–5 · ≥3 meets expectations)">
-          <div className="flex gap-2">{[1, 2, 3, 4, 5].map((n) => <button key={n} onClick={() => setRpm(n)} className={`w-11 h-11 rounded-lg font-semibold text-sm ring-1 transition ${rpm === n ? "text-white ring-transparent" : "ring-slate-200 text-slate-500 hover:bg-slate-50"}`} style={rpm === n ? { background: n >= 3 ? "#10b981" : "#f43f5e" } : {}}>{n}</button>)}</div>
+          <div className="flex gap-2">{[1, 2, 3, 4, 5].map((n) => <button key={n} onClick={() => setRpm(n)} className={`w-11 h-11 rounded-lg font-semibold text-sm ring-1 transition ${rpm === n ? "text-white ring-transparent" : "ring-slate-200 text-slate-500 hover:bg-slate-50"}`} style={rpm === n ? { background: n >= 3 ? "#2BAF70" : "#D62828" } : {}}>{n}</button>)}</div>
         </Field>
         <Field label="Performance comments (min 20 chars)"><textarea value={comments} onChange={(e) => setComments(e.target.value)} rows={3} className={inputCls} placeholder="Assessment against KPIs…" /></Field>
         <Field label="Recommendation"><select value={recmd} onChange={(e) => setRecmd(e.target.value)} className={inputCls}><option>Confirm</option><option>Extend</option><option>Non-Confirm</option><option>Continue monitoring</option></select></Field>
