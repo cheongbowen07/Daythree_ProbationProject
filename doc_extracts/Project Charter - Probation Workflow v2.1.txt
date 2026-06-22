@@ -1,0 +1,287 @@
+
+
+--- PAGE 1 ---
+
+PROJECT CHARTER | Probation Process Digitalisation 
+PROJECT CHARTER 
+Digitalisation of Employee Probation Management Workflow 
+ 
+1. Executive Summary 
+This Project Charter formally authorises the Probation Process Digitalisation project within 
+the FAITH HRMS platform. The project delivers a fully digitised, workflow-driven probation 
+management solution covering automated notifications, structured monthly performance 
+reviews, digital letter generation, and real-time employment status updates in FAITH. 
+ 
+Following a decision in May 2026, the project will implement an internal e-signature and 
+acknowledgement solution within FAITH rather than integrating with DocuSign. All letter 
+signing and acknowledgement workflows will be handled natively within the FAITH 
+platform, eliminating the third-party integration dependency and associated licensing 
+costs. 
+ 
+This Project Charter formally authorises the FAITH HRMS Probation Digitalisation initiative 
+undertaken by Daythree Business Services Sdn. Bhd. It covers two parallel workflows: New-
+Hire Probation (WF1) and Acting-Role Probation (WF2). 
+ 
+2. Project Background & Business Case 
+2.1 Background  
+ 
+The organisation currently manages employee probation through a combination of manual 
+tracking, email-based notifications, and physical or standalone digital letter preparation. 
+This results in: 
+ 
+• Inconsistent probation monitoring across departments and line managers 
+• Missed review timelines due to lack of automated reminders 
+• Delayed letter generation and signature collection 
+• Inaccurate or late employment status updates in FAITH 
+• Limited visibility for HR and management on probation pipeline status 
+ 
+ 
+ 
+
+
+--- PAGE 2 ---
+
+PROJECT CHARTER | Probation Process Digitalisation 
+2.2 Business  Case 
+ 
+Benefit Expected outcome 
+Process compliance 100% of probation reviews completed on schedule 
+Efficiency gains Reduction in manual HR admin effort by est. 40–60% 
+Audit & governance Full digital audit trail for all probation actions and decisions 
+Employee experience Timely, professional communication with all new employees 
+Data accuracy Real-time employment status in FAITH aligned to probation 
+outcomes 
+Cost reduction Internal e-signature solution eliminates DocuSign licensing costs 
+ 
+3. Project Objectives 
+• Deliver a fully functional Probation module within FAITH that automates the end-to-
+end probation workflow as defined in Process V2.0 
+• Implement grade-differentiated automated daily reminder notifications for all key 
+milestones (Day 31, Day 61, Day 91, etc.) and throughout DR acceptance and 
+signing windows
+ 
+• Configure 7-day DR auto-acceptance with daily reminders for all monthly review 
+cycles 
+• Enforce HRBP 5-day SLA for letter generation from the point of HRBP notification 
+• Enable digital letter generation (Confirmation, Extension, Non-Confirmation) with 
+an internal e-signature and acknowledgement solution built within FAITH 
+• Configure role-based access and task queues for LM, DR, HRBP, and PM roles 
+• Ensure real-time synchronisation of employment status in FAITH upon probation 
+outcome 
+• Support the 6-month probation rule for M9-grade and above employees, with 
+allowance for early confirmation 
+• Provide HRBP with full pipeline visibility, SLA tracking, report generation and audit 
+export capability 
+• Deliver a Reporting & Analytics module covering 5 report types with on-screen, 
+Excel/CSV export 
+
+
+--- PAGE 3 ---
+
+PROJECT CHARTER | Probation Process Digitalisation 
+4. Scope 
+4.1 In Scope:  
+ 
+• Probation module configuration within FAITH (My Team Probation, My Probation 
+views) 
+• Workflow automation: status transitions, daily reminder notifications, and auto-
+accept logic 
+• KPI & Target setting interface for Line Managers at probation initiation 
+• WF1 - New-Hire Probation: E08 and below (3-month, 3 review cycles); M09-M12 (6-
+month, 6 review cycles) 
+• WF2 - Acting-Role Probation: Dependent on job grade, fixed 3 or 6-month cycle, 
+same monthly cycle review -cycle review model, KPI-based early confirmation for 
+M09+ job grades 
+• Monthly performance review screens for Mth1, Mth2, Mth3, etc. (and repeat cycle 
+for extensions) 
+• DR acceptance workflow with daily reminders and 7-day auto-acceptance fallback 
+rule 
+• Daily reminder engine for LM (Day 31, Day 61 triggers, etc.) and DR (post each 
+review submission) 
+• HRBP 5-day SLA enforcement and monitoring for letter generation 
+• HRBP letter generation module: Confirmation, Extension, Non-Confirmation letters 
+• Internal e-signature and acknowledgement solution built within FAITH  
+• Internal signature completion handler processes signing events natively in FAITH 
+• Daily DR signing reminder fully internal, no third-party dependency 
+• Employee Profile Table updates (both DR-view and HRBP-view) 
+• Employment status update in FAITH upon probation completion 
+• Grade-based rule engine: 3-month standard vs 6-month for M9 and above, with 
+early confirmation 
+• Escalation path to HRBP when direct report list is inaccurate 
+• User Acceptance Testing (UAT), training, and go-live support 
+• HRBP Reporting Dashboard – See TNB_HC Probation Tracker sample 
+• Report consumers: HRBP (org-wide), Line Manager (own team only), Senior 
+Leadership / HR Director (aggregate read-only) 
+• Export formats: on-screen view, Excel/CSV 
+• All export events logged 
+• Early termination, audit logging, promotion gate 
+• 54 system components: 12 screens, 12 forms, 14 notifications, 6 letter templates, 
+11 automations 
+ 
+ 
+
+
+--- PAGE 4 ---
+
+PROJECT CHARTER | Probation Process Digitalisation 
+4.2 Out of Scope: 
+• DocuSign integration removed per decision on April 27, 2026; internal e-signature 
+solution adopted instead 
+• Performance Improvement Plan (PIP) processes post-non-confirmation 
+• Recruitment or onboarding module changes 
+• Integration with third-party payroll systems (unless separately scoped) 
+• Historical data migration of past probation records 
+• Mobile application development (FAITH web interface only, tablet-responsive) 
+• Scheduled / automated report delivery (email scheduling) 
+ 
+5. Workflow Overview 
+5.1 WF1 - New-Hire Probation Review Cycles 
+Triggered automatically on employee creation. N-09 notifies the Line Manager initiates via 
+F-01. Review cycle structure is grade-differentiated: 
+Grade Period Review 
+Cycles 
+Monthly Trigger Structure 
+E08 and 
+below 
+3 months 3 cycles Mth1: Day 31 | Mth2: Day 61 auto | Mth3: post-
+Mth2 DR accept 
+M09-M12 6 months 6 cycles Mth1: Day 31 | Mth2: Day 61 auto | Mth3-6: each 
+triggered post-prior DR accept 
+Day 91 auto status change applies to E05-E08 only. M09-M12 outcome selection is 
+triggered after Month 6 DR acceptance. 
+Outcomes: LT-01 (Confirmation) | LT-02 (Extension, 3-month fixed) | LT-03 (Non-
+Confirmation) | LT-04 (Early Confirmation, M09-M12 only) 
+5.2 WF2 - Acting-Role Probation 
+Triggered by Line Manager via F-10. HOD approval required (N-13). Grade-differentiated 
+monthly review model: Month 1-3 (all grades); Month 4-6 (M09-M12 only). 
+Grade E08 and below M09-M12 
+Duration 3 months 6 months 
+
+
+--- PAGE 5 ---
+
+PROJECT CHARTER | Probation Process Digitalisation 
+Grade E08 and below M09-M12 
+Review Cycles 3 cycles 6 cycles 
+ 
+6. Compliance & Audit 
+To ensure the security and non-repudiation of the process, the following compliance 
+requirements are mandatory for the internal acknowledgement module: 
+x Digital Fingerprint: Every acknowledgement must capture the User ID, Date/Time 
+Stamp, and the IP Address of the user. 
+x Version Control: The system must store the exact version of the letter (PDF) that was 
+presented to and acknowledged by the employee. 
+x Immutable Logs: Audit logs must be stored in a read-only format to prevent tampering 
+or manual alterations. 
+x Reporting: The system must provide HRBPs with the ability to export acknowledgement 
+reports for legal or other verification purposes. 
+ 
+7. Project Organisation 
+Role Name 
+Project Sponsor Zaina 
+Project Manager & BA Henry Angala 
+Technical Lead Roy / Fazlen 
+HRBP (Design-Time) Zaina / Niresha 
+HRBP / LM / DR Dynamic roles at runtime 
+ 
+ 
+ 
+
+
+--- PAGE 6 ---
+
+PROJECT CHARTER | Probation Process Digitalisation 
+8. RACI Matrix 
+Activity Sponso
+r PM/BA Tech Lead QA HRBP Dev LM DR 
+Requirements I A/R C C C I C I 
+Internal Ack. Design I R A C C C I I 
+Development I C A I I R I I 
+Testing I C C A R C C C 
+Workflow Completion I I I I A I R R 
+RACI legend: R = Responsible, A = Accountable, C = Consulted, I = Informed. A/R indicates the role is both 
+Accountable and Responsible for that activity. 
+ 
+9. Key Business Rules (Flow v2.0) 
+Auto-Acceptance: Reviews for Month 1, 2, and 3 (for all grades) and Month 4, 5, and 6 (for 
+M9+ grades) will auto-accept after 7 days if action is not taken. Daily reminders apply. 
+M9+ Roles: Default probation period of 6 months with early confirmation eligibility. 
+HRBP SLA: Letters must be generated within 3 business days of notification. 
+ 
+10. High-Level Requirements 
+Req ID Category Requirement Priority 
+FR-01 Workflow System shall auto-initiate probation upon new 
+employee creation trigger from PM Must Have 
+FR-02 Workflow LM shall navigate to My Team Probation and 
+verify direct report list Must Have 
+FR-03 Workflow LM shall set KPIs & Targets per direct report and 
+submit to initiate probation Must Have 
+
+
+--- PAGE 7 ---
+
+PROJECT CHARTER | Probation Process Digitalisation 
+FR-04 Notification System shall send notification to LM on Day 31 + 
+daily reminders for Mth1 review Must Have 
+FR-05 Notification 
+System shall auto-change status on Day 61 + 
+daily reminders for Mth2, Mth3, Mth4, Mth5, 
+Mth6 reviews dependent on the Grade-
+differentiated monthly review model. 
+Must Have 
+FR-06 Notification System shall trigger daily reminder notifications 
+to DR post each review submission Must Have 
+FR-07 Automation System shall auto-accept DR review after 7 days 
+of inaction Must Have 
+FR-08 Workflow HRBP shall be notified to generate letters after 
+Mth3 DR acceptance Must Have 
+FR-09 Letter System shall generate Confirmation, Extension, 
+or Non-Confirmation letter digitally Must Have 
+FR-10 E-Signature 
+System shall provide an internal e-signature and 
+acknowledgement solution within FAITH for DR 
+to sign probation letters — no third-party 
+integration required 
+Must Have 
+FR-11 Automation 
+System shall update employment status in 
+FAITH upon probation letter 
+signing/acknowledgement 
+Must Have 
+FR-12 Business 
+Rule 
+System shall apply 6-month probation period for 
+M9-grade and above employees Must Have 
+FR-13 Workflow Escalation path available to HRBP when direct 
+report list is inaccurate Must Have 
+FR-14 Workflow Extension outcome shall loop back to monthly 
+review cycle (Repeat R-flow) Must Have 
+
+
+--- PAGE 8 ---
+
+PROJECT CHARTER | Probation Process Digitalisation
+FR-15 SLA System shall enforce and track HRBP 5-day SLA 
+for letter generation Must Have
+FR-16 Business 
+Rule
+System shall allow early confirmation for M9-
+grade and above before 6-month period ends Must Have
+NF-01 Security Role-based access control for LM, DR, HRBP, 
+PM, and Agent/Specialist roles Must Have
+NF-02 Audit Full audit trail of all status changes, 
+submissions, approvals, and SLA events Must Have
+NF-03 Availability System available 99.5% uptime during business 
+hours Should Have
+NF-04 Performance Notification and daily reminder delivery within 5 
+minutes of trigger event Should Have
+11. Approval
+By signing below, the signatories confirm they have reviewed and approved this Project 
+Charter, authorising the project to proceed.
+Role Name Signature Date
+Project Sponsor Zaina
+HRBP Rep Niresha
+Project Manager Henry Angala 4 June 2026
+Technical Lead Fazlen
+04/06/2026
+4/6/2026
