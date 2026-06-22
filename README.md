@@ -39,6 +39,7 @@ Switch roles using the dropdown in the top-right corner. Each role sees a differ
 - **Monthly reviews** (S-03 / F-03) — RPM 1–5 score submitted by Line Manager, then accepted by Direct Report (auto-accepted after 7 days)
 - **Outcome & letter generation** (S-07 / F-05) — HRBP generates templated confirmation / non-confirmation / extension letters
 - **E-signature** (S-10 / F-09) — Direct Report signs the outcome letter (typed or drawn)
+- **Settings & Doc Config** (S-11 / F-12) — HRBP manages document templates (Acceptance, Extension, Rejection) and global upload rules.
 - **SLA tracker** (S-08) — HRBP monitors the 5-day letter generation SLA
 - **Audit trail** (S-09) — Full event log across all workflow steps
 - **Reports & analytics** (S-12) — Exportable CSV reports, role-scoped
@@ -56,7 +57,15 @@ A single 3-month extension cycle (EXT phase) can be granted before a final outco
 ## Project structure
 
 ```
-faith-probation.jsx   # Main app — all components in one file
+faith-modular/        # Modularized application (Recommended)
+  App.jsx             # New root with modular architecture
+  constants.js        # Business logic constants & role navigation
+  data.js             # Seed data & audit generators
+  components/
+    ui/               # Reusable UI primitives (Btn, Card, PageHead)
+    modals/           # Interactive workflow dialogs
+    screens/          # Role-based page components
+faith-probation.jsx   # Legacy monolithic prototype (Reference only)
 src/main.jsx          # Vite entry point
 index.html            # HTML shell with Tailwind CDN
 package.json
