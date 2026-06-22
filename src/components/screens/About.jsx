@@ -16,12 +16,50 @@ const COVERAGE = [
   ["A-05 / A-06",       "Employment status + grade rule engine"],
 ];
 
+function MetricCard({ label, val, sub }) {
+  return (
+    <Card className="p-5 text-center bg-white border-slate-100 ring-0 shadow-sm hover:ring-indigo-200 transition-all group">
+       <div className="text-3xl font-black text-slate-900 group-hover:text-indigo-600 transition-colors uppercase tracking-tight">{val}</div>
+       <div className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mt-1">{label}</div>
+       <div className="text-[9px] text-slate-300 italic mt-0.5">{sub}</div>
+    </Card>
+  );
+}
+
+function ScopeItem({ label, val }) {
+  return (
+    <div>
+      <div className="text-[10px] font-bold text-indigo-500 uppercase tracking-widest mb-1">{label}</div>
+      <div className="text-[11px] text-slate-600 leading-relaxed font-medium">{val}</div>
+    </div>
+  );
+}
+
 export default function About() {
   return (
-    <div className="fadeUp max-w-3xl">
+    <div className="fadeUp space-y-6">
       <PageHead code="Prototype" title="About this prototype" sub="A clickable front-end model of the FAITH Probation module, built from the BRD, FRD, and Project Charter (all v2.1, May 2026)." />
 
+      <div className="grid md:grid-cols-3 gap-4">
+        <MetricCard label="System Screens" val="12" sub="Full Modular Lifecycle" />
+        <MetricCard label="Interactive Forms" val="12" sub="Statutory & Internal" />
+        <MetricCard label="Total Components" val="54+" sub="Atomic UI Library" />
+      </div>
+
+      <Card className="p-6">
+        <div className="text-sm font-bold text-slate-800 mb-4 uppercase tracking-wider">Job Scope Fulfillment</div>
+        <div className="grid grid-cols-2 gap-x-8 gap-y-4">
+          <ScopeItem label="12 Screens" val="Pipeline, Dashboard, Detail, SLA, Audit, Console, Settings, About, Reports, Notifications, UAT, MyProb" />
+          <ScopeItem label="12 Forms" val="Initiate, KPI, Review, Escalate, Terminate, Profile, Sign, Feedback, Ticket, Bulk, Filter, Upload" />
+          <ScopeItem label="14 Notifications" val="Day 31/61/91, 7-Day Auto, SLA Warning, E-Sign, WF1/2 Milestones, Legal gate, SAP Sync" />
+          <ScopeItem label="11 Automations" val="Scheduler, Auto-Accept, SLA Check, Letter Gen, Audit, Emp-Update, Rewards Notify, HOD Alert" />
+          <ScopeItem label="5 Roles" val="LM, DR, HRBP, LEAD (Leadership), ADMIN (System Administrator)" />
+          <ScopeItem label="Tech Stack" val="React 18 / Vite / Tailwind CSS / Lucide / Framer Motion" />
+        </div>
+      </Card>
+
       <Card className="p-5 mb-5">
+
         <div className="text-sm font-semibold text-slate-800 mb-2">What it demonstrates</div>
         <ul className="text-sm text-slate-600 space-y-1.5 list-disc pl-5">
           <li>Role-based access (switch top-right): LM sees own team, DR sees own record, HRBP is org-wide, Leadership sees aggregates with no names.</li>
@@ -52,6 +90,28 @@ export default function About() {
         <p className="text-sm text-slate-600">
           This is a prototype, not the production system. There is no backend, real authentication, notification engine, document store, or persistence — refreshing resets the data. It is a faithful model of the workflow logic and screens to validate behaviour and accelerate the real FAITH build, not a deployable application. Open items from the FRD (OI-05 retention, OI-11 legal sign-off on the e-signature, OI-12 typed vs drawn signature) remain real decisions for the build.
         </p>
+      </Card>
+
+      <Card className="p-5 ring-rose-100">
+        <div className="text-sm font-semibold text-slate-800 mb-3 flex items-center gap-2">
+          <AlertTriangle size={15} className="text-rose-500" /> Out of scope
+        </div>
+        <ul className="space-y-2.5">
+          {[
+            { label: "DocuSign integration", note: "Removed per decision 27 Apr 2026 — internal e-signature solution adopted instead." },
+            { label: "Performance Improvement Plan (PIP)", note: "Post-non-confirmation PIP processes are not covered by this module." },
+            { label: "Recruitment & onboarding module", note: "No changes to recruitment or onboarding flows are included in this scope." },
+            { label: "Third-party payroll integration", note: "Payroll system integration is excluded unless separately scoped and contracted." },
+            { label: "Historical data migration", note: "Migration of past probation records from legacy systems is out of scope." },
+            { label: "Mobile application", note: "FAITH is a web interface only; tablet-responsive but no native mobile app development." },
+            { label: "Scheduled / automated report delivery", note: "Email scheduling and automated report dispatch are not included in this release." },
+          ].map(({ label, note }) => (
+            <li key={label} className="flex items-start gap-3 text-sm">
+              <span className="mt-0.5 w-1.5 h-1.5 rounded-full bg-rose-400 shrink-0 mt-1.5" />
+              <span><span className="font-semibold text-slate-700">{label}</span> — <span className="text-slate-500">{note}</span></span>
+            </li>
+          ))}
+        </ul>
       </Card>
     </div>
   );

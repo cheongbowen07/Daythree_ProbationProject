@@ -17,8 +17,13 @@ import SystemConsole  from "./components/screens/SystemConsole";
 import SettingsUpload from "./components/screens/SettingsUpload";
 import About          from "./components/screens/About";
 import Reports        from "./components/reports/Reports";
+import NotificationCenter from "./components/screens/NotificationCenter";
+import UatSupport     from "./components/screens/UatSupport";
+import LMSettings     from "./components/screens/LMSettings";
 
 export default function App() {
+
+
   const [records, setRecords] = useState(seedRecords);
   const [audit, setAudit]     = useState(seedAudit);
   const [role, setRole]       = useState("LM");
@@ -28,6 +33,12 @@ export default function App() {
   const [toast, setToast]     = useState(null);
   const [banner, setBanner]   = useState(true);
   const [roleMenu, setRoleMenu] = useState(false);
+  const [lmPermissions, setLmPermissions] = useState({
+    delegation:   false,
+    hodSignoff:   true,
+    autoEscalate: true,
+    notifyHrbp:   false,
+  });
 
   const log   = (e)           => setAudit((a) => [{ ...e, id: a.length + 1000 + Math.random() }, ...a]);
   const flash = (msg, kind = "ok") => { setToast({ msg, kind }); setTimeout(() => setToast(null), 2600); };
@@ -245,9 +256,6 @@ export default function App() {
           </div>
         </div>
         <div className="ml-auto flex items-center gap-2">
-          <div className="hidden sm:flex items-center gap-1.5 text-white/55 text-xs px-2.5 py-1.5 rounded-md" style={{ background: "rgba(255,255,255,.07)", fontFamily: "var(--mono)" }}>
-            <Calendar size={13} /> {TODAY}
-          </div>
           <div className="relative">
             <button onClick={() => setRoleMenu((v) => !v)} className="flex items-center gap-2 pl-2.5 pr-2 py-1.5 rounded-md text-sm font-medium" style={{ background: "rgba(255,255,255,.12)" }}>
               <span className="text-white/55 text-[11px] hidden sm:inline">Viewing as</span>
@@ -318,19 +326,29 @@ export default function App() {
           {role === "LM"   && view === "dashboard" && !active && <LMDashboard records={records} onOpen={setActiveId} onAdd={addRecord} />}
           {role === "LM"   && view === "dashboard" && active  && <CaseDetail rec={active} role={role} onBack={() => setActiveId(null)} onSubmitReview={submitReview} onEscalate={escalate} onTerminate={terminate} onSaveKpis={saveKpis} flash={flash} />}
           {role === "LM"   && view === "reports"   && <Reports records={records} role="LM" onReportExport={reportExport} />}
+          {role === "LM"   && view === "settings"  && <LMSettings permissions={lmPermissions} />}
 
           {role === "DR"   && view === "myprob"    && <DRHome records={records} asDr={asDr} setAsDr={setAsDr} onAccept={acceptReview} onSign={signLetter} />}
+
 
           {role === "HRBP" && view === "pipeline"  && !active && <HRBPPipeline records={records} onOpen={setActiveId} />}
           {role === "HRBP" && view === "pipeline"  && active  && <CaseDetail rec={active} role={role} onBack={() => setActiveId(null)} onGenerate={generateLetter} flash={flash} />}
           {role === "HRBP" && view === "sla"       && <SLATracker records={records} />}
           {role === "HRBP" && view === "audit"     && <AuditTrail audit={audit} />}
           {role === "HRBP" && view === "reports"   && <Reports records={records} role="HRBP" onReportExport={reportExport} />}
-          {role === "HRBP" && view === "console"   && <SystemConsole onScheduler={runScheduler} onAutoAccept={runAutoAccept} onSla={runSlaCheck} records={records} />}
+          {role === "HRBP" && view === "notifications" && <NotificationCenter />}
+          {role === "HRBP" && view === "uat"       && <UatSupport />}
+          {role === "HRBP" && view === "console"   && <SystemConsole onScheduler={runScheduler} onAutoAccept={runAutoAccept} onSla={runSlaCheck} records={records} lmPermissions={lmPermissions} setLmPermissions={setLmPermissions} />}
           {role === "HRBP" && view === "settings_upload" && <SettingsUpload />}
 
           {role === "LEAD" && view === "reports"   && <Reports records={records} role="LEAD" onReportExport={reportExport} />}
+
+          {role === "ADMIN" && view === "console"   && <SystemConsole onScheduler={runScheduler} onAutoAccept={runAutoAccept} onSla={runSlaCheck} records={records} lmPermissions={lmPermissions} setLmPermissions={setLmPermissions} />}
+          {role === "ADMIN" && view === "audit"     && <AuditTrail audit={audit} />}
+          {role === "ADMIN" && view === "notifications" && <NotificationCenter />}
+          {role === "ADMIN" && view === "uat"       && <UatSupport />}
         </main>
+
       </div>
 
       {toast && (

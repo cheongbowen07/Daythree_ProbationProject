@@ -1,7 +1,14 @@
-import { RefreshCw, Clock, AlertTriangle, Play } from "lucide-react";
+import { RefreshCw, Clock, AlertTriangle, Play, ShieldCheck, Save } from "lucide-react";
 import { Card, Btn, PageHead, Mono } from "../ui";
 
-export default function SystemConsole({ onScheduler, onAutoAccept, onSla, records }) {
+const PERMISSION_DEFS = [
+  { key: "delegation",   label: "Allow review delegation",          desc: "LMs can delegate a monthly review to another manager if unavailable." },
+  { key: "hodSignoff",   label: "Require HOD sign-off on outcomes", desc: "HOD must countersign confirmation or non-confirmation letters before dispatch." },
+  { key: "autoEscalate", label: "Auto-escalate overdue reviews",    desc: "Escalates to HRBP if a review isn't submitted within 5 days of the due date." },
+  { key: "notifyHrbp",   label: "Notify HRBP on every submission",  desc: "HRBP receives a notification on each monthly review submission, not just the final cycle." },
+];
+
+export default function SystemConsole({ onScheduler, onAutoAccept, onSla, records, lmPermissions = {}, setLmPermissions }) {
   const actions = [
     {
       code: "A-01", title: "Review cycle scheduler",
@@ -48,6 +55,34 @@ export default function SystemConsole({ onScheduler, onAutoAccept, onSla, record
             </div>
           </Card>
         ))}
+      </div>
+
+      {/* ── Line Manager Permissions ── */}
+      <div className="mt-8">
+        <div className="flex items-center gap-2 mb-4">
+          <ShieldCheck size={17} className="text-slate-500" />
+          <h2 className="text-base font-semibold text-slate-800">Line Manager Permissions</h2>
+          <Mono className="text-[11px] font-semibold text-cyan-700 bg-cyan-50 px-1.5 py-0.5 rounded ml-1">A-15</Mono>
+        </div>
+        <p className="text-sm text-slate-500 mb-4 -mt-2">These toggles control what line managers can and cannot do. Changes apply immediately across all LM accounts.</p>
+        <div className="grid md:grid-cols-2 gap-3">
+          {PERMISSION_DEFS.map(({ key, label, desc }) => (
+            <Card key={key} className="p-4">
+              <div className="flex items-start justify-between gap-4">
+                <div className="flex-1">
+                  <div className="text-sm font-semibold text-slate-800">{label}</div>
+                  <p className="text-xs text-slate-500 mt-1 leading-relaxed">{desc}</p>
+                </div>
+                <button
+                  onClick={() => setLmPermissions(p => ({ ...p, [key]: !p[key] }))}
+                  className={`relative shrink-0 w-11 h-6 rounded-full transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-indigo-500/30 ${lmPermissions[key] ? "bg-indigo-600" : "bg-slate-200"}`}
+                >
+                  <span className={`absolute top-0.5 left-0.5 w-5 h-5 bg-white rounded-full shadow transition-transform duration-200 ${lmPermissions[key] ? "translate-x-5" : "translate-x-0"}`} />
+                </button>
+              </div>
+            </Card>
+          ))}
+        </div>
       </div>
     </div>
   );

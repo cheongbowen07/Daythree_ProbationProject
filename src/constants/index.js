@@ -1,6 +1,6 @@
 import {
   LayoutDashboard, Users, FileText, BarChart3, ShieldCheck,
-  Clock, ScrollText, Settings, Building2, UserCog,
+  Clock, ScrollText, Settings, Building2, UserCog, Bell, Terminal
 } from "lucide-react";
 
 export const TODAY = "19 Jun 2026";
@@ -42,12 +42,14 @@ export const ROLES = [
   { id: "DR",   label: "Direct Report",          who: "self",       icon: UserCog,   scope: "Own record only" },
   { id: "HRBP", label: "HR Business Partner",    who: HRBP_SELF,    icon: ShieldCheck, scope: "Organisation-wide" },
   { id: "LEAD", label: "Senior Leadership",       who: "HR Director", icon: Building2, scope: "Aggregate, no names" },
+  { id: "ADMIN", label: "System Administrator",  who: "IT Core",     icon: Settings,   scope: "Master Override" },
 ];
 
 export const NAV = {
   LM: [
     ["dashboard", "My Team Probation",   LayoutDashboard, "S-01"],
     ["reports",   "Reports & Analytics", BarChart3,       "S-12"],
+    ["settings",  "Manager Settings",    Settings,        "A-15"],
   ],
   DR: [
     ["myprob", "My Probation", UserCog, "S-04"],
@@ -57,11 +59,19 @@ export const NAV = {
     ["sla",      "SLA Tracker",          Clock,           "S-08"],
     ["audit",    "Audit Trail",          ScrollText,      "S-09"],
     ["reports",  "Reports & Analytics",  BarChart3,       "S-12"],
+    ["notifications", "Notification Engine", Bell,        "S-05"],
+    ["uat",      "UAT & Support",        Terminal,        "UAT"],
     ["console",  "System Console",       Settings,        "A-01·02·04"],
     ["settings_upload", "Settings/Upload Document", FileText, "A-05"],
   ],
   LEAD: [
     ["reports", "Reports & Analytics", BarChart3, "S-12"],
+  ],
+  ADMIN: [
+    ["console",  "System Console",       Settings,        "A-01"],
+    ["audit",    "Master Audit",         ScrollText,      "S-09"],
+    ["notifications", "Dispatcher",       Bell,           "S-05"],
+    ["uat",      "Internal Support",     Terminal,        "UAT"],
   ],
 };
 
