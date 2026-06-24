@@ -6,6 +6,7 @@ import {
 } from "lucide-react";
 import { Card, Mono, Tag, Btn, RpmDots } from "./ui";
 import { totalCycles, daysCap } from "../utils/lifecycle";
+import { statusLabel } from "../utils/status";
 import ProfileEditModal from "./modals/ProfileEditModal";
 
 const EMP_STATUS_STYLE = {
@@ -142,7 +143,7 @@ export default function EmployeeProfile({ rec, editable, onSaveProfile }) {
             <F label="Workflow" value={rec.wf === "WF2" ? "WF2 · Acting-role" : "WF1 · New-hire"} />
             <F label="Cycle"    value={`${rec.currentCycle || 0} of ${rec.phase === "EXT" ? 3 : totalCycles(rec)}${rec.phase === "EXT" ? " (ext)" : ""}`} />
             <F label="Day"      value={`Day ${rec.day} of ${daysCap(rec)}`} />
-            <F label="Status"   value={rec.status} mono />
+            <F label="Status"   value={statusLabel(rec.status).replace(/^Probation –\s*/, "").replace(/^Extension –\s*/, "Ext – ")} mono />
             {rec.outcome           && <F label="Outcome"     value={OUTCOME_LABEL[rec.outcome] || rec.outcome} />}
             {rec.terminationReason && <F label="Termination" value={rec.terminationReason} />}
           </CardSection>

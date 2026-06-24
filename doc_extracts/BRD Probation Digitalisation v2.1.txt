@@ -1,817 +1,0 @@
-
-
---- PAGE 1 ---
-
-h^/E^^ZYh/ZDEd^KhDEdͮWƌŽďĂƚŝŽŶWƌŽĐĞƐƐŝŐŝƚĂůŝƐĂƚŝŽŶ
-
-ZǀϮ͘ϭͮDĂǇϮϬϮϲͮKE&/Ed/>
-
-BUSINESS REQUIREMENTS DOCUMENT 
-Probation Process Digitalisation 
-1. Introduction 
-1.1 Purpose & Scope  
-This BRD defines the complete business, functional, and non-functional requirements for the 
-Probation Process Digitalisation project on FAITH HRMS. It translates the agreed Probation Process 
-V2.0 flow into structured user stories and acceptance criteria that will drive system configuration, 
-development, and testing. 
-Crucial Architectural Note: As of May 2026, the project will use an internal e-signature and 
-acknowledgement solution built within FAITH. DocuSign integration has been removed from scope. All 
-user stories, acceptance criteria, and dependencies have been updated to reflect this decision.  
- 
-1.2 Business Problem Statement 
-• Inconsistent probation monitoring across departments and line managers 
-• Missed review timelines due to lack of automated reminders 
-• Delayed letter generation and signature collection 
-• Inaccurate or late employment status updates in FAITH 
-• Limited visibility for HR and management on probation pipeline status 
- 
-1.3 Business Stakeholders 
-Stakeholder Role Business Need Impact if Not Met
-Line Manager Initiate, review, 
-escalate
-Structured review cycles; 
-own-team reports (R-
-01/02/04)
-Reviews missed; no team 
-visibility
-Direct Report Accept, e-sign Visibility of own probation 
-progress
-Uninformed; disputes
-HRBP 
-
-
-
-Letters, SLA, 
-audit, reports
-Org-wide probation pipeline; 
-all 5 reports; all exports
-Compliance risk; no 
-operational oversight
-
-
---- PAGE 2 ---
-
-h^/E^^ZYh/ZDEd^KhDEdͮWƌŽďĂƚŝŽŶWƌŽĐĞƐƐŝŐŝƚĂůŝƐĂƚŝŽŶ
-
-ZǀϮ͘ϭͮDĂǇϮϬϮϲͮKE&/Ed/>
-
-Stakeholder Role Business Need Impact if Not Met
-Senior 
-Leadership / 
-HR Director
-Aggregate 
-reporting (S-12)
-R-01/03/05 aggregate: 
-completion rates, outcome 
-trends, acting pipeline
-No executive visibility of 
-probation health
-Rewards N-12 receive only Timely acting confirmation 
-notification
-Pay errors
-HOD N-13 receive only Control over acting 
-placements
-Unauthorised acting
-Legal/Compli
-ance
-LT-03; OI-05/11 Legal e-sig; 7-year retention Possible regulatory non-
-compliance
- 
-2. Business Requirements  
-• BR-REQ-01: System shall automatically create a probation record on employee creation 
-and notify Payroll Manager (N-09). 
-• BR-REQ-02: Line Manager shall initiate probation via the system, selecting probation type 
-(New-Hire or Acting-Role). 
-• BR-REQ-03: Probation duration and review cycle count shall be determined by grade and 
-WF type — E08 AND BELOW WF1: 3 months/3 cycles; M09–M12 WF1: 6 months/6 cycles; 
-all grades WF2: 6 months/3 cycles (BR-01/02/19). 
-• BR-REQ-04: Acting-role probation shall require HOD approval before the probation record 
-is activated. 
-• BR-REQ-05: Line Managers shall set KPIs before the first review cycle commences. KPI 
-targets visible to Direct Report. 
-• BR-REQ-06: Month 1 review triggered on Day 31 for all grades (BR-03). 
-• BR-REQ-07: Month 2 review auto-triggered on Day 61 for all grades (BR-04). 
-• BR-REQ-08: E08 AND BELOW: Month 3 triggered after Month 2 DR acceptance. M09–M12: 
-Months 3–6 each triggered after prior month DR acceptance (BR-05, BR-05a–05c). 
-• BR-REQ-09: Daily reminders sent to DR during every active review acceptance window 
-across all cycles (BR-06/07/08). 
-• BR-REQ-10: 7-day auto-accept applies to all cycles for both grades (A-02). 
-• BR-REQ-11: Draft review submissions do not advance workflow status (BR-10). 
-• BR-REQ-12: Outcome selection for E08 AND BELOW is triggered after Month 3 DR 
-acceptance. For M09–M12, outcome selection is triggered after Month 6 DR acceptance 
-(BR-05c). 
-• BR-REQ-13: Day 91 auto status change applies to E08 AND BELOW extension cycles only. It 
-does not apply to M09–M12 (BR-09). 
-
-
---- PAGE 3 ---
-
-h^/E^^ZYh/ZDEd^KhDEdͮWƌŽďĂƚŝŽŶWƌŽĐĞƐƐŝŐŝƚĂůŝƐĂƚŝŽŶ
-
-ZǀϮ͘ϭͮDĂǇϮϬϮϲͮKE&/Ed/>
-
-• BR-REQ-14: Monthly reviews include RPM score 1–5. Score ≥3 = meets expectations (BR-
-24). Applies to all cycles. 
-• BR-REQ-15: WF1 outcomes: Confirmation (LT-01), Extension (LT-02), Non-Confirmation 
-(LT-03), Early Confirmation (LT-04, M09–M12 only). 
-• BR-REQ-16: WF2 outcomes: Acting Confirmation (LT-05), Acting Non-Confirmation (LT-06). 
-• BR-REQ-17: Extensions fixed at 3 months, system-derived, read-only for all grades (BR-12). 
-• BR-REQ-18: Non-Confirmation (LT-03) requires mandatory legal review before letter 
-issuance. 
-• BR-REQ-19: M09–M12 may be confirmed early (before 6 months) subject to HRBP approval 
-(BR-16). 
-• BR-REQ-20: HRBP is sole owner of letter generation for all six letter types (BR-14). 
-• BR-REQ-21: HRBP must generate and dispatch New-Hire letters within 5 business days of 
-outcome selection (BR-15). 
-• BR-REQ-22: All letters signed internally via S-10, F-09, A-10. No third-party tools (BR-17). 
-• BR-REQ-23: Probation status auto-updates on signing (BR-13). 
-• BR-REQ-24: 3 review cycles for all grades (BR-19). 
-• BR-REQ-25: Acting Confirmation triggers N-12 to Rewards for salary review and new-role 
-benefits (BR-21). 
-• BR-REQ-26: Acting Non-Confirmation restores previous role; allowance stopped 
-immediately (BR-22). 
-• BR-REQ-27: Active probation (any type) blocks promotion via DEP-09 (BR-18). For M09–M12 
-this gate remains active through all 6 cycles. 
-• BR-REQ-28: Early termination initiated by LM or HRBP. Valid reasons: Resignation, 
-Abandonment, Mutual Agreement (BR-23). 
-• BR-REQ-29: On early termination: status = Prob-Terminated (terminal); all pending tasks 
-and reminders cancelled. 
-• BR-REQ-30: All probation events logged in A-09 (append-only). 7-year retention (OI-05 
-pending). HRBP can export via S-09/F-08. 
-• BR-REQ-31: RBAC enforced via A-08. LMs: own team only. DRs: own record only. HRBP: 
-org-wide. (A-08) 
-ͻ BR-REQ-32: The system shall provide a Reporting & Analytics module (S-12) accessible to 
-HRBP, Line Managers, and Senior Leadership / HR Director.
-ͻ BR-REQ-33: S-12 shall deliver five report types: R-01 (Probation Status Summary), R-02 
-(Overdue/At-Risk), R-03 (Outcome Summary), R-04 (RPM Score Trends), R-05 (Acting 
-Probation Pipeline).
-ͻ BR-REQ-34: All five reports shall support on-screen viewing, export to Excel/CSV, and 
-export to PDF.
-ͻ BR-REQ-35: Line Manager access to S-12 shall be scoped to own team only (BR-25). 
-Reports shall not expose records outside the LM's direct team.
-ͻ BR-REQ-36: Senior Leadership / HR Director access shall provide aggregate data only - no 
-individual employee names or DR-level data shall be visible (BR-26).
-ͻ BR-REQ-37: HRBP shall have full org-wide access to all five reports and all export formats.
-
-
---- PAGE 4 ---
-
-h^/E^^ZYh/ZDEd^KhDEdͮWƌŽďĂƚŝŽŶWƌŽĐĞƐƐŝŐŝƚĂůŝƐĂƚŝŽŶ
-
-ZǀϮ͘ϭͮDĂǇϮϬϮϲͮKE&/Ed/>
-
-ͻ BR-REQ-38: All report export actions (Excel/CSV/PDF) shall be logged in A-09 with actor, 
-timestamp, report type, and filter parameters applied (BR-27).
-ͻ BR-REQ-39: Report data shall be sourced from live FAITH HRMS probation records and the 
-A-09 audit log via A-11 (Report Data Engine).
-• BR-REQ-40: Scheduled/automated report delivery by email is out of scope for Phase 2; 
-deferred to post-Phase 3 (OI-14). 
- 
-2.1 Key Business Rules 
-Rule WF Description Enforced 
-By 
-Output 
-BR-01 WF1 New-hire E08 AND BELOW = 3 months, 3 
-review cycles 
-A-07 - 
-BR-02 WF1 New-hire M09–M12 = 6 months, 6 review 
-cycles 
-A-07 - 
-BR-03 WF1 Month 1 triggered Day 31 (all grades) A-01 N-01→LM 
-BR-04 WF1 Month 2 auto-triggered Day 61 (all grades) A-01 N-02→LM 
-BR-05 WF1 Month 3 triggered post-Mth2 DR accept (all 
-grades) 
-A-01 N-03→LM 
-BR-
-05a 
-WF1 
-M09–
-M12 
-Month 4 triggered post-Mth3 DR accept A-01 N-03a→LM 
-BR-
-05b 
-WF1 
-M09–
-M12 
-Month 5 triggered post-Mth4 DR accept A-01 N-03b→LM 
-BR-
-05c 
-WF1 
-M09–
-M12 
-Month 6 triggered post-Mth5 DR accept; 
-outcome after Mth6 DR accept 
-A-01 N-03c→LM 
-BR-06 Both Daily reminders to DR during all active 
-review acceptance windows 
-A-03 N-04 
-
-
---- PAGE 5 ---
-
-h^/E^^ZYh/ZDEd^KhDEdͮWƌŽďĂƚŝŽŶWƌŽĐĞƐƐŝŐŝƚĂůŝƐĂƚŝŽŶ
-
-ZǀϮ͘ϭͮDĂǇϮϬϮϲͮKE&/Ed/>
-
-Rule WF Description Enforced 
-By 
-Output 
-BR-07 Both Daily reminders apply to Month 2 window 
-(covered by BR-06) 
-A-03 N-04 
-BR-08 Both Daily reminders apply to all subsequent 
-month windows incl. Mth4–6 
-A-03 N-04 
-BR-09 WF1 
-E08 
-AND 
-BELOW 
-only 
-Day 91 auto-change for extension loop; 
-does NOT apply to M09–M12 
-A-01 N-10 
-BR-10 Both Draft forms do not advance workflow status System - 
-BR-11 Both LM→HRBP escalation via F-06; N-11 sent F-06 N-11→HRBP 
-BR-12 WF1 Extension = 3 months fixed; system-derived; 
-read-only all grades 
-A-07 LT-02 
-BR-13 Both FAITH status auto-updates on letter signing 
-(A-06) 
-A-06 - 
-BR-14 Both HRBP sole owner of letter generation (LT-01 
-to LT-06) 
-S-07 - 
-BR-15 WF1 HRBP 5-day SLA for New-Hire letters from 
-outcome selection 
-A-04 N-06/N-07 
-BR-16 WF1 M09–M12 may be confirmed early (pre-6m) 
-via F-07; HRBP approval required 
-F-07 LT-04 
-BR-17 Both All signatures internal only: S-10/F-09/A-10. 
-No third-party 
-A-10 - 
-BR-18 Both Active probation (any type) blocks 
-promotion eligibility via DEP-09 
-A-07 DEP-09 
-BR-19 WF2 Acting role = 6 months, 3 review cycles, all 
-grades 
-A-07 - 
-
-
---- PAGE 6 ---
-
-h^/E^^ZYh/ZDEd^KhDEdͮWƌŽďĂƚŝŽŶWƌŽĐĞƐƐŝŐŝƚĂůŝƐĂƚŝŽŶ
-
-ZǀϮ͘ϭͮDĂǇϮϬϮϲͮKE&/Ed/>
-
-Rule WF Description Enforced 
-By 
-Output 
-BR-20 WF2 Acting confirmation triggers Rewards salary 
-review + new-role benefits 
-N-12 LT-05 
-BR-21 WF2 Acting non-confirmation: previous role 
-restored 
-A-06 LT-06 
-BR-22 Both Early termination by LM/HRBP; 
-Resignation/Abandonment/Mutual 
-Agreement; terminal 
-F-11 Prob-Terminated 
-BR-23 Both RPM 1–5 in F-03; ≥3 = meets expectations; 
-threshold for Confirm recommendation 
-F-03 - 
-BR-24 Reportin
-g 
-LM report access (S-12) scoped to own team 
-only; enforced by A-08 
-A-08/A-11 S-12 
-BR-25 Reportin
-g 
-Senior Leadership/HR Director: aggregate 
-read-only view; no individual DR data 
-A-11 S-12 
-BR-25 Reportin
-g 
-All report export events (Excel/CSV) logged 
-in A-09 
-A-09/A-11 A-09 log 
- 
-2.2 Report Specifications 
-Ref Report Name Consumer Access Key Metrics / Dimensions
-R-01 Probation 
-Status Summary
-HRBP, LM, 
-Leadership
-HRBP: org-wide | LM: 
-own team | Leadership: 
-aggregate
-Headcount by status, grade, 
-department, WF type 
-(NH/Acting), period
-R-02 Overdue / At-
-Risk
-HRBP, LM HRBP: org-wide | LM: 
-own team
-Employees with overdue 
-reviews, missed triggers, SLA 
-breaches; days overdue
-R-03 Outcome 
-Summary
-HRBP, 
-Leadership
-HRBP: org-wide | 
-Leadership: aggregate
-Confirmation / Extension / 
-Non-Confirmation rates by 
-grade, department, quarter
-
-
---- PAGE 7 ---
-
-h^/E^^ZYh/ZDEd^KhDEdͮWƌŽďĂƚŝŽŶWƌŽĐĞƐƐŝŐŝƚĂůŝƐĂƚŝŽŶ
-
-ZǀϮ͘ϭͮDĂǇϮϬϮϲͮKE&/Ed/>
-
-Ref Report Name Consumer Access Key Metrics / Dimensions
-R-04 RPM Score 
-Trends
-HRBP, LM HRBP: org-wide | LM: 
-own team
-RPM distribution per cycle 
-(Mth1–6), by grade, 
-department; average scores; 
-below-threshold count
-R-05 Acting Probation 
-Pipeline
-HRBP, 
-Leadership
-HRBP: org-wide | 
-Leadership: aggregate
-Active acting probations: 
-grade, acting grade, 
-allowance, cycle progress, 
-outcome status
- 
-3. Roles & System Permissions  
-Role System Access Key Permissions 
-Line Manager (LM) People Manager 
-Role 
-My Team Probation view; initiate probation; 
-set KPIs; submit monthly reviews 
-Direct Report (DR) Agent/Specialist 
-Role 
-My Probation view; accept/review monthly 
-performance; sign letters via internal e-
-signature (S-10) 
-HR Business Partner 
-(HRBP) 
-HRBP Role Full probation pipeline visibility; generate 
-letters; manage escalations; SLA tracking; 
-audit export 
-People Manager (PM) PM Role Trigger notification to initiate probation upon 
-employee creation 
-System (Auto) N/A Auto status change; auto notification; auto-
-acceptance after 7 days; internal signing 
-event processing 
-4. User Stories & Acceptance Criteria  
-All user stories from v2.0 are retained. US-09 has been rewritten to reflect the internal e-signature 
-solution. US-16 is new in v3.0. 
-
-
---- PAGE 8 ---
-
-h^/E^^ZYh/ZDEd^KhDEdͮWƌŽďĂƚŝŽŶWƌŽĐĞƐƐŝŐŝƚĂůŝƐĂƚŝŽŶ
-
-ZǀϮ͘ϭͮDĂǇϮϬϮϲͮKE&/Ed/>
-
-4.1 Probation initiation  
-US-01: Line Manager View 
-As a... Line Manager 
-I want to... log in to FAITH, navigate to My Team Probation and view a list of my direct 
-reports 
-So that... I can verify the list is accurate and take action to initiate probation 
-Priority Must Have 
-Owner LM / FAITH IT 
-Acceptance Criteria: 
-x LM can access the Probation module and My Team Probation screen without error. 
-x All active direct reports assigned to the LM are listed with name, employee ID, joined date, and 
-probation status. 
-x An escalation button is available to notify HRBP if the list is inaccurate. 
- 
-US-02: KPI Setting 
-As a... Line Manager 
-I want to... initiate probation for each direct report and set their KPIs and targets 
-within FAITH 
-So that... the system captures agreed performance expectations from day one 
-Priority Must Have 
-Owner LM / HRBP 
-Acceptance Criteria: 
-x LM can initiate probation and a KPI/Target form is presented. 
-x KPI and Target fields are mandatory before submission. 
-x On submission, status changes to Prob-KPI Review with workflow owner as LM. 
-x If saved as draft, system retains draft status. 
- 
-
-
---- PAGE 9 ---
-
-h^/E^^ZYh/ZDEd^KhDEdͮWƌŽďĂƚŝŽŶWƌŽĐĞƐƐŝŐŝƚĂůŝƐĂƚŝŽŶ
-
-ZǀϮ͘ϭͮDĂǇϮϬϮϲͮKE&/Ed/>
-
-US-03: Probation Automated Trigger 
-As a... People Manager 
-I want to... trigger a notification to initiate probation when a new employee is 
-created in FAITH 
-So that... the probation process starts promptly without manual HR intervention 
-Priority Must Have 
-Owner PM / FAITH IT 
-Acceptance Criteria: 
-x On employee record creation, a notification is automatically generated for the PM. 
-x Notification directs PM to initiate the probation workflow for the new employee. 
-x System logs the trigger timestamp for audit purposes. 
- 
-4.2 Monthly performance reviews  
-US-04: Month 1 Review Notification 
-As a... Line Manager 
-I want to... receive a notification on Day 31 with daily reminders to complete Month 
-1 performance review 
-So that... I do not miss the review deadline and probation stays on track 
-Priority Must Have 
-Owner LM / FAITH IT 
-Acceptance Criteria: 
-x System sends notification to LM on Day 31 from joined date. 
-x System sends daily reminders to LM until Mth1 review is submitted. 
-x Notification links directly to the Mth1 review screen pre-populated with DR's KPIs. 
-x LM can submit the review, changing status to Prob-Mth1 Review. 
- 
-
-
---- PAGE 10 ---
-
-h^/E^^ZYh/ZDEd^KhDEdͮWƌŽďĂƚŝŽŶWƌŽĐĞƐƐŝŐŝƚĂůŝƐĂƚŝŽŶ
-
-ZǀϮ͘ϭͮDĂǇϮϬϮϲͮKE&/Ed/>
-
-US-05: Direct Report Review Acceptance 
-As a... Direct Report 
-I want to... receive daily reminders to accept my monthly performance review 
-So that... I am informed of my assessment and can formally acknowledge it 
-Priority Must Have 
-Owner DR / FAITH IT 
-Acceptance Criteria: 
-x DR receives daily reminder notifications from the day LM submits each monthly review. 
-x DR can accept the review; status changes to DR Acpt; daily reminders cease. 
-x If DR does not act after 7 days, system auto-accepts; audit log records actor = System. 
-x Daily reminders stop once DR has accepted or system has auto-accepted. 
- 
-US-06: Month 2 Automatic Trigger 
-As a... System 
-I want to... auto-change probation status on Day 61 and notify the Line Manager with 
-daily reminders for Month 2 review 
-So that... the review cycle continues without manual HR intervention 
-Priority Must Have 
-Owner FAITH IT 
-Acceptance Criteria: 
-x On Day 61 from joined date, status auto-changes to Prob-Mth2 Review. 
-x System sends notification + daily reminders to LM until Mth2 review is submitted. 
-x Workflow owner set to LM upon status change. 
- 
-US-07: Month 2 & Month 3 Progression 
-As a... Line Manager 
-
-
---- PAGE 11 ---
-
-h^/E^^ZYh/ZDEd^KhDEdͮWƌŽďĂƚŝŽŶWƌŽĐĞƐƐŝŐŝƚĂůŝƐĂƚŝŽŶ
-
-ZǀϮ͘ϭͮDĂǇϮϬϮϲͮKE&/Ed/>
-
-I want to... complete Month 2 and Month 3 performance reviews following the same 
-structured process as Month 1 
-So that... all three review milestones are completed consistently and on time 
-Priority Must Have 
-Owner LM / DR 
-Acceptance Criteria: 
-x Mth2 and Mth3 review forms follow identical structure to Mth1. 
-x Mth3 review trigger sent after Mth2 DR acceptance is confirmed. 
-x Daily reminder auto-accept rules (7 days) apply consistently across all three review cycles. 
-x After Mth3 DR acceptance, system notifies HRBP to generate letters. 
- 
-4.3 Letter generation & internal e-signature  
-US-08: HRBP Letter Generation Engine 
-As a... HR Business Partner 
-I want to... receive a notification after Month 3 is accepted and generate the 
-appropriate probation outcome letter within the required SLA 
-So that... the correct letter is prepared digitally and sent for signing without 
-manual document handling 
-Priority Must Have 
-Owner HRBP / FAITH IT 
-Acceptance Criteria: 
-x HRBP receives notification when Mth3 DR acceptance is confirmed; status changes to Prob-
-Pending Letter. 
-x A 5-day SLA countdown is visible and correctly calculated from the notification timestamp. 
-x HRBP can select the outcome: Confirmation, Extension, or Non-Confirmation. 
-x System generates the corresponding digital letter using the pre-configured template. 
-x For M9 and above, standard 6-month rule applies; early confirmation option available via F-07. 
- 
-
-
---- PAGE 12 ---
-
-h^/E^^ZYh/ZDEd^KhDEdͮWƌŽďĂƚŝŽŶWƌŽĐĞƐƐŝŐŝƚĂůŝƐĂƚŝŽŶ
-
-ZǀϮ͘ϭͮDĂǇϮϬϮϲͮKE&/Ed/>
-
-US-09: Internal Workflow Routing 
-As a... HR Business Partner 
-I want to... send the generated probation outcome letter for signing via the internal 
-FAITH e-signature solution 
-So that... the signing process is fast, auditable, and fully contained within FAITH - 
-no third-party tool required 
-Priority Must Have 
-Owner HRBP / FAITH IT 
-Acceptance Criteria: 
-x Upon letter generation, HRBP can initiate the internal signing workflow from within FAITH. 
-x DR is presented with the letter in the FAITH internal e-signature screen (S-10) for review and 
-acknowledgement. 
-x DR receives daily reminder notifications within FAITH until the letter is signed/acknowledged. 
-x Status changes to Pending Conf./Ext./NConf. Sign Off with workflow owner as DR. 
-x Once signed, A-10 signature completion handler processes the event and advances status. 
-x Employment status in FAITH is updated automatically upon signing completion via A-10. 
-x Signed letter and completion record are stored in the employee's digital record within FAITH. 
- 
-US-10: Automated Profile Sync 
-As a... System 
-I want to... update the employment status in FAITH upon probation letter signing 
-completion 
-So that... employee records are always accurate without manual HR intervention 
-Priority Must Have 
-Owner FAITH IT 
-Acceptance Criteria: 
-x Upon internal signing completion of Confirmation letter, FAITH employment status updates to 
-Confirmed. 
-x Upon signing completion of Non-Confirmation letter, FAITH employment status updates 
-accordingly. 
-
-
---- PAGE 13 ---
-
-h^/E^^ZYh/ZDEd^KhDEdͮWƌŽďĂƚŝŽŶWƌŽĐĞƐƐŝŐŝƚĂůŝƐĂƚŝŽŶ
-
-ZǀϮ͘ϭͮDĂǇϮϬϮϲͮKE&/Ed/>
-
-x Status update is logged with timestamp in A-09 for audit purposes. 
-x HRBP can view the updated status in the Employee Profile Table. 
- 
-US-11: Extension Lifecycle Loop 
-As a... Line Manager 
-I want to... understand that an Extended outcome means the monthly review cycle 
-repeats 
-So that... I know what actions are required and can continue managing my direct 
-report's probation 
-Priority Must Have 
-Owner LM / DR / HRBP 
-Acceptance Criteria: 
-x Extension outcome triggers repeat of monthly review cycle (R-flow) from Mth1. 
-x System sends notification to LM to commence repeat review cycle. 
-x DR receives daily reminder notifications after Extension letter is dispatched for signing. 
-x All repeat review statuses are tracked distinctly in audit log. 
- 
-4.4 Non-functional requirements  
-US-12: Access Security (RBAC) 
-As a... System Administrator 
-I want to... enforce role-based access control so each user only sees and does what 
-their role permits 
-So that... data security and process integrity are maintained 
-Priority Must Have 
-Owner FAITH IT 
-Acceptance Criteria: 
-x LM role can only access My Team Probation; cannot access HRBP letter generation or e-
-signature admin. 
-
-
---- PAGE 14 ---
-
-h^/E^^ZYh/ZDEd^KhDEdͮWƌŽďĂƚŝŽŶWƌŽĐĞƐƐŝŐŝƚĂůŝƐĂƚŝŽŶ
-
-ZǀϮ͘ϭͮDĂǇϮϬϮϲͮKE&/Ed/>
-
-x DR role can only access My Probation view and their own e-signature screen. 
-x HRBP role has full pipeline visibility and letter generation rights. 
-x Unauthorised access attempts are blocked and logged in A-09. 
- 
-US-13: Compliance Audit Trail 
-As a... HRBP / Auditor 
-I want to... access a complete audit trail of all probation status changes, 
-submissions, and decisions 
-So that... the organisation can demonstrate process compliance and respond to 
-any employment disputes 
-Priority Must Have 
-Owner FAITH IT 
-Acceptance Criteria: 
-x Every status change records: previous status, new status, actor, date/time, and action type. 
-x Auto-acceptance events are logged with System as the actor. 
-x All submitted reviews, letter generation, internal signing events, and daily reminder dispatches 
-are traceable. 
-x Audit log is read-only and cannot be modified by any user role. 
-x HRBP can export audit trail for a selected employee or date range. 
- 
-4.5 SLA & early confirmation  
-US-14: SLA Tracking 
-As a... HR Business Partner 
-I want to... be tracked against a 5-day SLA to generate the probation outcome letter 
-after receiving notification 
-So that... letter preparation is completed promptly and turnaround time is 
-monitored 
-Priority Must Have 
-Owner HRBP / FAITH IT 
-
-
---- PAGE 15 ---
-
-h^/E^^ZYh/ZDEd^KhDEdͮWƌŽďĂƚŝŽŶWƌŽĐĞƐƐŝŐŝƚĂůŝƐĂƚŝŽŶ
-
-ZǀϮ͘ϭͮDĂǇϮϬϮϲͮKE&/Ed/>
-
-Acceptance Criteria: 
-x System records the timestamp when the HRBP notification is sent. 
-x A 5-day SLA countdown is visible to HRBP on the pending letter task. 
-x System escalates or flags overdue letter generation if HRBP has not acted within 5 business 
-days. 
-x SLA compliance data is captured in A-09 for reporting. 
- 
-US-15: M9 Early Fast-Track 
-As a... HR Business Partner 
-I want to... initiate early confirmation for an M9-grade or above employee before the 
-standard 6-month period ends 
-So that... high-performing senior employees are not unnecessarily delayed in 
-receiving confirmation 
-Priority Must Have 
-Owner HRBP / FAITH IT 
-Acceptance Criteria: 
-x HRBP can select Early Confirmation for M9+ employees at any point post Mth3 DR acceptance. 
-x System generates the Early Confirmation letter (LT-04) with HRBP justification clause. 
-x Audit log records the early confirmation event with HRBP as actor. 
- 
-4.6 Native E-Signature Environment (New in v3.0)  
-US-16: Employee Signing Interface 
-As a... Direct Report 
-I want to... sign and acknowledge my probation outcome letter within FAITH without 
-needing a third-party tool 
-So that... the signing process is simple, secure, and accessible entirely within the 
-FAITH platform I already use 
-Priority Must Have 
-
-
---- PAGE 16 ---
-
-h^/E^^ZYh/ZDEd^KhDEdͮWƌŽďĂƚŝŽŶWƌŽĐĞƐƐŝŐŝƚĂůŝƐĂƚŝŽŶ
-
-ZǀϮ͘ϭͮDĂǇϮϬϮϲͮKE&/Ed/>
-
-Owner DR / FAITH IT 
-Acceptance Criteria: 
-x DR can access the internal e-signature screen (S-10) directly from the My Probation letter tab or 
-daily reminder notification. 
-x The full letter content is displayed read-only within S-10 before signing. 
-x DR can provide their acknowledgement via the internal signature capture mechanism (F-09). 
-x Once submitted, A-10 processes the signing event and advances the probation status. 
-x A completion record (timestamp, employee ID, IP address) is stored in FAITH and logged in A-
-09. 
-x DR receives a confirmation notification once signing is complete. 
-x The signed letter PDF is stored in the DR's employee document record within FAITH. 
- 
-5. System Status Reference  
-Status Workflow 
-Owner Triggered By Next Status 
-Prob-KPI Review LM LM initiates probation Prob-Mth1 Review 
-Prob-Mth1 Review LM Day 31 + daily reminders to 
-LM 
-Prob-Mth1 DR Acpt 
-Prob-Mth1 DR Acpt DR LM submits Mth1; daily 
-reminders to DR 
-Prob-Mth2 Review 
-Prob-Mth2 Review LM Day 61 auto-change + daily 
-reminders to LM 
-Prob-Mth2 DR Acpt 
-Prob-Mth2 DR Acpt DR LM submits Mth2; daily 
-reminders to DR 
-Prob-Mth3 Review 
-Prob-Mth3 Review LM After Mth2 DR acceptance Prob-Mth3 DR Acpt 
-Prob-Mth3 DR Acpt DR LM submits Mth3; daily 
-reminders to DR 
-Prob-Pending 
-Letter 
-Prob-Pending Letter HRBP Mth3 DR acceptance; HRBP 
-5-day SLA starts 
-Letter type status 
-
-
---- PAGE 17 ---
-
-h^/E^^ZYh/ZDEd^KhDEdͮWƌŽďĂƚŝŽŶWƌŽĐĞƐƐŝŐŝƚĂůŝƐĂƚŝŽŶ
-
-ZǀϮ͘ϭͮDĂǇϮϬϮϲͮKE&/Ed/>
-
-Prob-Conf. Letter HRBP HRBP generates Confirmation 
-letter (within SLA) 
-Pending Conf. Sign 
-Off 
-Prob-Ext Letter HRBP HRBP generates Extension 
-letter (within SLA) 
-Pending Ext. Sign 
-Off 
-Prob-NConf. Letter HRBP HRBP generates Non-Conf. 
-letter (within SLA) 
-Pending NConf. 
-Sign Off 
-Pending Conf. Sign Off DR Letter sent to S-10; daily 
-reminders to DR 
-Prob. Complete 
-(Conf.) 
-Pending Ext. Sign Off DR Letter sent to S-10; daily 
-reminders to DR 
-Repeat R-flow 
-Pending NConf. Sign Off DR Letter sent to S-10; daily 
-reminders to DR 
-Prob. Complete 
-(NConf.) 
-Prob. Complete (Conf.) HRBP DR signs via S-10/F-09; A-10 
-processes 
-END - Status 
-Updated 
-Prob. Complete 
-(NConf.) 
-HRBP DR signs via S-10/F-09; A-10 
-processes 
-END - Status 
-Updated 
-6. Dependencies & Integrations  
-Ref  Dependency Detail 
-DEP-
-01 
- Internal e-signature 
-module 
-FAITH must be capable of building or 
-configuring an internal signature 
-capture and acknowledgement solution 
-(S-10, F-09, A-10) - no third-party 
-integration required 
-DEP-
-02 
- Employee Profile Table Probation module reads/writes to the 
-Employee Profile Table (LM/DR view and 
-HRBP view) 
-DEP-
-03 
- Employee grade data Probation module must read employee 
-grade to apply 3-month vs 6-month rule 
-and early confirmation eligibility 
-
-
---- PAGE 18 ---
-
-h^/E^^ZYh/ZDEd^KhDEdͮWƌŽďĂƚŝŽŶWƌŽĐĞƐƐŝŐŝƚĂůŝƐĂƚŝŽŶ
-ZǀϮ͘ϭ ͮDĂǇϮϬϮϲͮKE&/Ed/>
-DEP-
-04
-Notification / daily 
-reminder engine
-FAITH notification engine must support 
-scheduled, event-driven, and recurring 
-daily reminder dispatch
-DEP-
-05
-Authentication / RBAC FAITH identity management must 
-support role assignment for LM, DR, 
-HRBP, PM roles
-DEP-
-06
-FAITH employment 
-status field
-Probation outcome must write to the 
-employment status field in FAITH HRMS
-DEP-
-07
-SLA tracking engine FAITH must support SLA countdown 
-and overdue escalation alerting for 
-HRBP letter generation
-DEP-
-08
-FAITH document 
-library
-Signed letters and completion records 
-must be stored in the FAITH employee 
-document library
-7. Document Sign-Off
-By signing below, the signatories confirm this BRD accurately represents the agreed business 
-requirements, including the adoption of an internal e-signature solution in place of DocuSign.
-Role Name Signature Date
-Project Sponsor Zaina
-HRBP Rep Niresha
-Project Manager Henry Angala June 4, 2026
-Technical Lead Fazlen
--E n d  o f  B R D  -
-04/06/2026
-4/6/2026
