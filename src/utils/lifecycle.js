@@ -31,7 +31,7 @@ export function currentStageKey(rec) {
     let m;
     if ((m = s.match(/^Ext-Mth(\d)-Review$/)))  return `ext-m${m[1]}r`;
     if ((m = s.match(/^Ext-Mth(\d)-DR-Acpt$/))) return `ext-m${m[1]}a`;
-    if (s === "Ext-Pending-Letter")              return "ext-pending";
+    if (["Ext-Pending-Letter", "Ext-LM-Outcome", "Ext-HRBP-Ack"].includes(s)) return "ext-pending";
     if (/Sign-Off$/.test(s))                     return "ext-sign";
     if (s === "Complete-Conf" || s === "Complete-NConf") return "ext-done";
     return "ext-start";
@@ -40,7 +40,7 @@ export function currentStageKey(rec) {
   let m;
   if ((m = s.match(/^Mth(\d)-Review$/)))  return `m${m[1]}r`;
   if ((m = s.match(/^Mth(\d)-DR-Acpt$/))) return `m${m[1]}a`;
-  if (s === "Pending-Letter" || s === "Pending-Letter(Acting)" || /-Letter$/.test(s)) return "pending";
+  if (["Pending-Letter", "Pending-Letter(Acting)", "LM-Outcome", "LM-Outcome(Acting)", "HRBP-Ack", "HRBP-Ack(Acting)"].includes(s) || /-Letter$/.test(s)) return "pending";
   if (/Sign-Off$/.test(s))                return "sign";
   if (s === "Complete-Conf" || s === "Complete-NConf") return "done";
   return "kpi";

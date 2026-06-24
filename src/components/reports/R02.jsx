@@ -1,17 +1,21 @@
+import { useEffect } from "react";
 import { CheckCircle2 } from "lucide-react";
 import { Empty, StatusBadge, Tag } from "../ui";
 import ReportShell, { exportReport } from "./ReportShell";
 
-export default function R02({ records, role, onReportExport }) {
+export default function R02({ records, role, onReportExport, exportRef }) {
   const rows = records.filter((r) => r.slaBreached || r.reminders >= 3);
 
   function exp(format) {
-    exportReport(
-      format, "R-02",
-      [["Employee", "LM", "Status", "Issue"], ...rows.map((r) => [r.name, r.lm, r.status, r.slaBreached ? "SLA breach" : "Reminders >=3"])],
-      "R02-overdue.csv", role, onReportExport,
-    );
+    const head = ["Employee", "Emp ID", "Line Manager", "Status", "Issue", "SLA Days", "Reminders Sent"];
+    const data = rows.map((r) => [r.name, r.empId, r.lm, r.status, r.slaBreached ? "SLA Breach" : "Reminders ≥ 3", r.slaDays ?? "—", r.reminders ?? 0]);
+    exportReport(format, "R-02", "Overdue / At-Risk", head, data, "R02-overdue.csv", role, onReportExport, {
+      scope: "Organisation-wide",
+      colWidths: [22, 14, 22, 28, 18, 12, 16],
+    });
   }
+
+  useEffect(() => { if (exportRef) exportRef.current = exp; });
 
   return (
     <ReportShell code="R-02" title="Overdue / At-Risk" onExport={exp}>

@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import Modal from "./Modal";
+import { Modal } from "./Modal";
 import { Btn } from "../ui";
 
 export default function ProfileEditModal({ rec, onClose, onSave }) {

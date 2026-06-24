@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect, useRef } from "react";
 import {
   ChevronDown, Calendar, CheckCircle2, X, Info,
 } from "lucide-react";
@@ -18,8 +18,8 @@ import SettingsUpload from "./components/screens/SettingsUpload";
 import About          from "./components/screens/About";
 import Reports        from "./components/reports/Reports";
 import NotificationCenter from "./components/screens/NotificationCenter";
-import UatSupport     from "./components/screens/UatSupport";
 import LMSettings     from "./components/screens/LMSettings";
+import HODPipeline    from "./components/screens/HODPipeline";
 
 export default function App() {
 
@@ -39,25 +39,151 @@ export default function App() {
     autoEscalate: true,
     notifyHrbp:   false,
   });
+  const [automations, setAutomations] = useState({
+    scheduler:   { enabled: false, triggerDay: 31, intervalSecs: 30, lastRun: null },
+    autoAccept:  { enabled: false, days: 7,        intervalSecs: 30, lastRun: null },
+    slaCheck:    { enabled: false, slaDays: 3,     intervalSecs: 30, lastRun: null },
+    dayCheck:    { enabled: false, dayThreshold: 91, intervalSecs: 30, lastRun: null },
+  });
+
+  const recordsRef = useRef(records);
+  useEffect(() => { recordsRef.current = records; }, [records]);
 
   const log   = (e)           => setAudit((a) => [{ ...e, id: a.length + 1000 + Math.random() }, ...a]);
   const flash = (msg, kind = "ok") => { setToast({ msg, kind }); setTimeout(() => setToast(null), 2600); };
 
   function switchRole(r) { setRole(r); setView(NAV[r][0][0]); setActiveId(null); setRoleMenu(false); }
 
+  function patchAutomation(key, field, value) {
+    setAutomations((a) => ({ ...a, [key]: { ...a[key], [field]: value } }));
+  }
+
+  // A-01: Review cycle scheduler — Day 31 (Mth1) + Day 61/91/121/151/181 (Mth2–6, grade-differentiated) [FR-04, FR-05]
+  useEffect(() => {
+    if (!automations.scheduler.enabled) return;
+    const id = setInterval(() => {
+      const now = new Date().toLocaleTimeString("en-MY", { hour: "2-digit", minute: "2-digit" });
+      setRecords((rs) => rs.map((r) => {
+        // Day 31: KPI-Review → Mth1-Review
+        if (r.status === "KPI-Review" && r.kpis.length > 0 && r.day >= automations.scheduler.triggerDay) {
+          setAudit((a) => [{ id: a.length + 1000 + Math.random(), ts: `${TODAY} · ${now} MYT`, actor: "System", type: "schedule", detail: `A-01 FR-04: Day ${automations.scheduler.triggerDay} reached → Month 1 review triggered · N-01 to LM`, empId: r.empId, prev: r.status, next: "Mth1-Review" }, ...a]);
+          return { ...r, status: "Mth1-Review", currentCycle: 1 };
+        }
+        // Day 61/91/121/151/181: MthN-DR-Acpt still pending → force-advance [FR-05]
+        const drAcptMatch = r.status.match(/^Mth(\d)-DR-Acpt$/);
+        if (drAcptMatch) {
+          const n = Number(drAcptMatch[1]);
+          const dayThreshold = (n + 1) * 30 + 1; // Day 61 for Mth1, 91 for Mth2, etc.
+          if (r.day >= dayThreshold && !r[`day${dayThreshold}Fired`]) {
+            const isFinal = n >= totalCycles(r);
+            const next = isFinal
+              ? (r.wf === "WF2" ? "LM-Outcome(Acting)" : "LM-Outcome")
+              : `Mth${n + 1}-Review`;
+            setAudit((a) => [{ id: a.length + 1000 + Math.random(), ts: `${TODAY} · ${now} MYT`, actor: "System", type: "schedule", detail: `A-01 FR-05: Day ${dayThreshold} threshold — Month ${n} DR acceptance overdue · auto-advanced · N-02 to LM`, empId: r.empId, prev: r.status, next }, ...a]);
+            return { ...r, status: next, reminders: 0, currentCycle: isFinal ? r.currentCycle : n + 1, [`day${dayThreshold}Fired`]: true };
+          }
+        }
+        return r;
+      }));
+      setAutomations((a) => ({ ...a, scheduler: { ...a.scheduler, lastRun: now } }));
+    }, automations.scheduler.intervalSecs * 1000);
+    return () => clearInterval(id);
+  }, [automations.scheduler.enabled, automations.scheduler.intervalSecs, automations.scheduler.triggerDay]);
+
+  // A-02: daily N-04 reminder + 7-day auto-accept fallback
+  useEffect(() => {
+    if (!automations.autoAccept.enabled) return;
+    const id = setInterval(() => {
+      const now = new Date().toLocaleTimeString("en-MY", { hour: "2-digit", minute: "2-digit" });
+      setRecords((rs) => rs.map((r) => {
+        if (!/-DR-Acpt$/.test(r.status)) return r;
+        const newReminders = (r.reminders || 0) + 1;
+        const threshold    = automations.autoAccept.days;
+        const n   = r.status.match(/(\d)/)?.[1];
+        const ext = r.phase === "EXT";
+
+        if (newReminders >= threshold) {
+          // Auto-accept fallback fires
+          const isFinal = ext ? Number(n) >= 3 : Number(n) >= totalCycles(r);
+          const next = isFinal
+            ? (ext ? "Ext-LM-Outcome" : r.wf === "WF2" ? "LM-Outcome(Acting)" : "LM-Outcome")
+            : (ext ? `Ext-Mth${Number(n)+1}-Review` : `Mth${Number(n)+1}-Review`);
+          setAudit((a) => [
+            { id: a.length + 1000 + Math.random(), ts: `${TODAY} · ${now} MYT`, actor: "System", type: "notify",  detail: `N-04 daily reminder #${newReminders} dispatched to ${r.name} (${r.empId})`, empId: r.empId, prev: "", next: "" },
+            { id: a.length + 2000 + Math.random(), ts: `${TODAY} · ${now} MYT`, actor: "System", type: "accept",  detail: `A-02 auto-accept: ${threshold}-day reminder threshold reached — accepted on behalf of DR`, empId: r.empId, prev: r.status, next },
+            ...a,
+          ]);
+          return { ...r, status: next, reminders: 0, ...(isFinal ? { slaDays: 0, slaBreached: false } : { currentCycle: Number(n) + 1 }) };
+        }
+
+        // Daily reminder only
+        setAudit((a) => [{ id: a.length + 1000 + Math.random(), ts: `${TODAY} · ${now} MYT`, actor: "System", type: "notify", detail: `N-04 daily reminder #${newReminders} dispatched to ${r.name} (${r.empId}) — ${threshold - newReminders} day(s) until auto-accept`, empId: r.empId, prev: "", next: "" }, ...a]);
+        return { ...r, reminders: newReminders };
+      }));
+      setAutomations((a) => ({ ...a, autoAccept: { ...a.autoAccept, lastRun: now } }));
+    }, automations.autoAccept.intervalSecs * 1000);
+    return () => clearInterval(id);
+  }, [automations.autoAccept.enabled, automations.autoAccept.intervalSecs, automations.autoAccept.days]);
+
+  // A-04: SLA check
+  useEffect(() => {
+    if (!automations.slaCheck.enabled) return;
+    const id = setInterval(() => {
+      const now = new Date().toLocaleTimeString("en-MY", { hour: "2-digit", minute: "2-digit" });
+      setRecords((rs) => rs.map((r) => {
+        if (r.status.includes("Pending-Letter") && (r.slaDays || 0) >= automations.slaCheck.slaDays && !r.slaBreached) {
+          setAudit((a) => [{ id: a.length + 1000 + Math.random(), ts: `${TODAY} · ${now} MYT`, actor: "System", type: "sla-breach", detail: `A-04 auto: N-07 URGENT — letter SLA breached (${automations.slaCheck.slaDays}d)`, empId: r.empId, prev: "", next: "" }, ...a]);
+          return { ...r, slaBreached: true };
+        }
+        return r;
+      }));
+      setAutomations((a) => ({ ...a, slaCheck: { ...a.slaCheck, lastRun: now } }));
+    }, automations.slaCheck.intervalSecs * 1000);
+    return () => clearInterval(id);
+  }, [automations.slaCheck.enabled, automations.slaCheck.intervalSecs, automations.slaCheck.slaDays]);
+
+  // A-06: Day 91 breach check for E08-and-below grades
+  useEffect(() => {
+    if (!automations.dayCheck.enabled) return;
+    const id = setInterval(() => {
+      const now = new Date().toLocaleTimeString("en-MY", { hour: "2-digit", minute: "2-digit" });
+      setRecords((rs) => rs.map((r) => {
+        if (
+          r.gradeBand === "E08_below" &&
+          r.day >= automations.dayCheck.dayThreshold &&
+          !r.day91Breached &&
+          !r.status.startsWith("Complete-") &&
+          r.status !== "Terminated"
+        ) {
+          setAudit((a) => [{ id: a.length + 1000 + Math.random(), ts: `${TODAY} · ${now} MYT`, actor: "System", type: "day91-breach", detail: `A-06 auto: Day ${r.day} ≥ ${automations.dayCheck.dayThreshold} threshold — probation window elapsed for E-grade · N-07 URGENT to HRBP`, empId: r.empId, prev: "", next: "" }, ...a]);
+          return { ...r, day91Breached: true };
+        }
+        return r;
+      }));
+      setAutomations((a) => ({ ...a, dayCheck: { ...a.dayCheck, lastRun: now } }));
+    }, automations.dayCheck.intervalSecs * 1000);
+    return () => clearInterval(id);
+  }, [automations.dayCheck.enabled, automations.dayCheck.intervalSecs, automations.dayCheck.dayThreshold]);
+
   function patch(id, fn, audits = []) {
     setRecords((rs) => rs.map((r) => (r.id === id ? fn({ ...r }) : r)));
     audits.forEach(log);
   }
 
-  function submitReview(id, rpm, recText) {
+  function submitReview(id, rpm, recText, extra = {}) {
     const r = records.find((x) => x.id === id);
     const n = monthFromStatus(r.status);
     const ext  = r.phase === "EXT";
     const next = ext ? `Ext-Mth${n}-DR-Acpt` : `Mth${n}-DR-Acpt`;
     patch(id, (rec) => {
       rec.status  = next;
-      rec.reviews = [...rec.reviews.filter((v) => v.cycle !== n), { cycle: n, rpm, rec: recText, actor: rec.lm }];
+      rec.reviews = [...rec.reviews.filter((v) => v.cycle !== n), {
+        cycle: n, rpm, rec: recText, actor: rec.lm,
+        kpiSummary: extra.kpiSummary || "",
+        actingCtx:  extra.actingCtx  || "",
+        reviewDate: extra.reviewDate  || "",
+        recmd:      extra.recmd       || "",
+      }];
       rec.reminders = 0;
       return rec;
     }, [
@@ -80,10 +206,10 @@ export default function App() {
         ev("System", "trigger", `Month ${n + 1} review trigger → LM`, r.empId),
       ];
     } else {
-      next   = ext ? "Ext-Pending-Letter" : r.wf === "WF2" ? "Pending-Letter(Acting)" : "Pending-Letter";
+      next   = ext ? "Ext-LM-Outcome" : r.wf === "WF2" ? "LM-Outcome(Acting)" : "LM-Outcome";
       audits = [
-        ev(actor, "accept",      `Final cycle acceptance (${actor === "System" ? "auto-accept" : "DR"})`, r.empId, r.status, next),
-        ev("System", "sla-start", "N-06 to HRBP · A-04 5-day SLA started", r.empId),
+        ev(actor, "accept",   `Final cycle acceptance (${actor === "System" ? "auto-accept" : "DR"})`, r.empId, r.status, next),
+        ev("System", "trigger", "N-15 to LM — outcome decision required (Confirm / Extend / Not Confirm)", r.empId),
       ];
     }
     patch(id, (rec) => {
@@ -95,20 +221,60 @@ export default function App() {
     flash(actor === "System" ? `Auto-accepted Month ${n} (actor: System)` : `Month ${n} accepted`);
   }
 
+  function setLmOutcome(id, outcome) {
+    const r = records.find((x) => x.id === id);
+    const next = r.status === "Ext-LM-Outcome"    ? "Ext-HRBP-Ack"
+               : r.status === "LM-Outcome(Acting)" ? "HRBP-Ack(Acting)"
+               : "HRBP-Ack";
+    patch(id, (rec) => { rec.outcome = outcome; rec.status = next; return rec; }, [
+      ev(r.lm, "outcome-set", `LM outcome decision: ${outcome} · awaiting HRBP acknowledgement`, r.empId, r.status, next),
+      ev("System", "notify", "N-06 to HRBP — acknowledgement required before letter generation", r.empId),
+    ]);
+    flash(`Outcome recorded — HRBP acknowledgement requested`);
+  }
+
+  function hrbpAcknowledge(id, approved, remarks) {
+    const r = records.find((x) => x.id === id);
+    if (approved) {
+      const next = r.status === "Ext-HRBP-Ack"    ? "Ext-Pending-Letter"
+                 : r.status === "HRBP-Ack(Acting)" ? "Pending-Letter(Acting)"
+                 : "Pending-Letter";
+      patch(id, (rec) => { rec.status = next; rec.slaDays = 0; rec.slaBreached = false; rec.hrbpAckRemarks = remarks || null; return rec; }, [
+        ev(HRBP_SELF, "hrbp-ack", `HRBP acknowledged LM decision: ${r.outcome}${remarks ? ` · Note: ${remarks}` : ""}`, r.empId, r.status, next),
+        ev("System", "sla-start", "A-04 3-business-day letter SLA started · N-06 to HRBP", r.empId),
+      ]);
+      flash("Acknowledged — proceeding to letter generation");
+    } else {
+      const next = r.status === "Ext-HRBP-Ack"    ? "Ext-LM-Outcome"
+                 : r.status === "HRBP-Ack(Acting)" ? "LM-Outcome(Acting)"
+                 : "LM-Outcome";
+      patch(id, (rec) => { rec.status = next; rec.outcome = null; rec.hrbpReturnRemarks = remarks || null; return rec; }, [
+        ev(HRBP_SELF, "hrbp-return", `HRBP returned decision to LM for reconsideration${remarks ? ` · Reason: ${remarks}` : ""}`, r.empId, r.status, next),
+        ev("System", "notify", "N-16 to LM — HRBP has returned the outcome for review", r.empId),
+      ]);
+      flash("Returned to Line Manager for reconsideration");
+    }
+  }
+
   function generateLetter(id, outcome, label, lt, legal) {
-    const r          = records.find((x) => x.id === id);
+    const r            = records.find((x) => x.id === id);
     const letterStatus = OUTCOME_TO_LETTER[outcome];
     const signStatus   = OUTCOME_TO_SIGN[outcome];
+    const letterId     = "LTR-" + (2100 + r.id);
+    const letterVersion = `v1.0-${letterId}-${Date.now()}`;
+    const generatedAt  = new Date().toISOString();
     patch(id, (rec) => {
-      rec.outcome      = outcome;
-      rec.letterType   = lt;
-      rec.letterId     = "LTR-" + (2100 + rec.id);
+      rec.outcome       = outcome;
+      rec.letterType    = lt;
+      rec.letterId      = letterId;
+      rec.letterVersion = letterVersion;
+      rec.letterGeneratedAt = generatedAt;
       rec.legalReviewed = !!legal;
-      rec.status       = signStatus;
-      rec.slaBreached  = false;
+      rec.status        = signStatus;
+      rec.slaBreached   = false;
       return rec;
     }, [
-      ev(HRBP_SELF, "letter-gen", `${label} letter generated (${lt})${outcome === "NConf" ? " · legal review passed" : ""}`, r.empId, r.status, letterStatus),
+      ev(HRBP_SELF, "letter-gen", `${label} letter generated (${lt}) · version ${letterVersion}${outcome === "NConf" ? " · legal review passed" : ""}`, r.empId, r.status, letterStatus),
       ev(HRBP_SELF, "dispatch",   "Letter dispatched to S-10 · N-08 daily reminder to DR", r.empId, letterStatus, signStatus),
     ]);
     flash(`${label} letter generated & dispatched for signing`);
@@ -130,24 +296,34 @@ export default function App() {
       empStatus = "Probation (extended)";
       extra     = [ev("System", "trigger", "N-10 → LM · single 3-month extension cycle begins", r.empId)];
     }
+    const isoTs  = new Date().toISOString();
+    const simIp  = `10.42.${Math.floor(Math.random()*255)}.${Math.floor(Math.random()*255)}`;
+    const hashRef = `SHA256-${btoa(r.empId + isoTs).replace(/=/g,"").slice(0,24).toUpperCase()}`;
     patch(id, (rec) => {
       if (o === "Ext") { rec.phase = "EXT"; rec.currentCycle = 1; }
-      rec.status         = next;
+      rec.status           = next;
       rec.employmentStatus = empStatus;
       rec.completion = {
-        ts:              TODAY + " · 09:30 MYT",
+        ts:              TODAY + " · " + new Date().toLocaleTimeString("en-MY", { hour: "2-digit", minute: "2-digit" }) + " MYT",
+        isoTs,
+        userId:          rec.empId,
         empId:           rec.empId,
+        empName:         rec.name,
         letterId:        rec.letterId,
         letterType:      rec.letterType,
+        letterVersion:   rec.letterVersion || "v1.0",
+        letterGeneratedAt: rec.letterGeneratedAt || isoTs,
         signature:       sig.method === "typed" ? sig.typed : "Drawn signature",
         signatureMethod: sig.method,
         signatureImage:  sig.image || "",
-        ip:  "10.42.7.118",
-        ua:  "Chrome 126 · FAITH Web",
+        ip:              simIp,
+        ua:              navigator.userAgent.slice(0, 60) + "…",
+        integrityHash:   hashRef,
+        outcome:         rec.outcome,
       };
       return rec;
     }, [
-      ev(r.name, "sign",       `Letter ${r.letterId} signed via S-10/F-09 · A-09 processed`, r.empId, r.status, next),
+      ev(r.name, "sign",       `Letter ${r.letterId} signed via S-10/F-09 · A-09 processed · hash ${hashRef}`, r.empId, r.status, next),
       ev("System", "emp-update", `A-05 employment status → ${empStatus}`, r.empId),
       ...extra,
     ]);
@@ -178,10 +354,10 @@ export default function App() {
 
   function saveKpis(id, kpis) {
     const r = records.find((x) => x.id === id);
-    patch(id, (rec) => { rec.kpis = kpis; return rec; }, [
-      ev(r.lm, "kpi", `KPIs set (${kpis.length}) · armed for Day-31 trigger`, r.empId),
+    patch(id, (rec) => { rec.kpis = kpis; rec.kpisLocked = true; return rec; }, [
+      ev(r.lm, "kpi", `KPIs submitted (${kpis.length}) · locked · armed for Day-31 trigger`, r.empId),
     ]);
-    flash("KPIs saved — awaiting Day-31 review trigger (A-01)");
+    flash("KPIs submitted and locked — HRBP unlock required to edit (BR-10)");
   }
 
   function addRecord(rec) {
@@ -199,43 +375,30 @@ export default function App() {
     setActiveId(id);
   }
 
+  function updateProfile(id, fields) {
+    setRecords((rs) => rs.map((r) => r.id === id ? { ...r, ...fields } : r));
+  }
+
+  function reassignLM(id, newLm, reason) {
+    const r = records.find((x) => x.id === id);
+    patch(id, (rec) => { rec.lm = newLm; rec.dept = ["Marcus Lee", "Priya Nair"].includes(newLm) ? "Operations" : "Technology"; return rec; }, [
+      ev(HRBP_SELF, "escalation", `F-13 LM reassignment: ${r.lm} → ${newLm} · Reason: ${reason}`, r.empId, r.lm, newLm),
+      ev("System", "notify", `N-11 → ${newLm} (new LM) · N-09 → ${r.lm} (previous LM) · record updated`, r.empId),
+    ]);
+    flash(`${r.name} reassigned to ${newLm}`);
+  }
+
+  function drListEscalate(issueType, empRef, desc) {
+    const LABELS = { "wrong-assign": "Wrongly assigned", "missing-dr": "Missing from list", "wrong-details": "Incorrect details", other: "Other" };
+    log(ev(LM_SELF, "escalation", `F-06b DR list inaccuracy: ${LABELS[issueType] || issueType}${empRef ? ` · Ref: ${empRef}` : ""} — ${desc}`, "LIST", "", ""));
+    log(ev("System", "notify", "N-11 → HRBP · DR list inaccuracy report received from LM", "LIST"));
+    flash("DR list inaccuracy reported to HRBP (N-11)");
+  }
+
   function reportExport(roleName, reportCode, format, rowCount) {
     const scope = roleName === "LM" ? "own-team" : roleName === "LEAD" ? "aggregate" : "org-wide";
     log(ev(ROLES.find((r) => r.id === roleName)?.who || roleName, "export", `${reportCode} ${format.toUpperCase()} export · scope=${scope} · rows=${rowCount}`, "REPORT", "", reportCode));
     flash(`${reportCode} ${format.toUpperCase()} export logged to audit`);
-  }
-
-  function runScheduler() {
-    let moved = 0;
-    setRecords((rs) => rs.map((r) => {
-      if (r.status === "KPI-Review" && r.kpis.length > 0) {
-        moved++;
-        log(ev("System", "schedule", "A-01: Day 31 reached → Month 1 review · N-01 to LM", r.empId, r.status, "Mth1-Review"));
-        return { ...r, status: "Mth1-Review", currentCycle: 1, day: Math.max(r.day, 31) };
-      }
-      return r;
-    }));
-    flash(moved ? `A-01 advanced ${moved} record(s) to Month 1` : "A-01: no records due for a calendar trigger");
-  }
-
-  function runAutoAccept() {
-    const due = records.filter((r) => /-DR-Acpt$/.test(r.status));
-    if (!due.length) { flash("A-02: no acceptance windows open"); return; }
-    due.forEach((r) => acceptReview(r.id, "System"));
-    flash(`A-02 auto-accepted ${due.length} overdue acceptance(s)`);
-  }
-
-  function runSlaCheck() {
-    let breached = 0;
-    setRecords((rs) => rs.map((r) => {
-      if (r.status.includes("Pending-Letter") && (r.slaDays || 0) >= 5 && !r.slaBreached) {
-        breached++;
-        log(ev("System", "sla-breach", "A-04: N-07 URGENT — letter SLA breached", r.empId));
-        return { ...r, slaBreached: true };
-      }
-      return r;
-    }));
-    flash(breached ? `A-04 flagged ${breached} SLA breach(es)` : "A-04: all letters within SLA");
   }
 
   const active = records.find((r) => r.id === activeId) || null;
@@ -323,30 +486,30 @@ export default function App() {
 
           {view === "about" && <About />}
 
-          {role === "LM"   && view === "dashboard" && !active && <LMDashboard records={records} onOpen={setActiveId} onAdd={addRecord} />}
-          {role === "LM"   && view === "dashboard" && active  && <CaseDetail rec={active} role={role} onBack={() => setActiveId(null)} onSubmitReview={submitReview} onEscalate={escalate} onTerminate={terminate} onSaveKpis={saveKpis} flash={flash} />}
+          {role === "LM"   && view === "dashboard" && !active && <LMDashboard records={records} onOpen={setActiveId} onDRListEscalate={drListEscalate} onAdd={addRecord} />}
+          {role === "LM"   && view === "dashboard" && active  && <CaseDetail rec={active} role={role} onBack={() => setActiveId(null)} onSubmitReview={submitReview} onEscalate={escalate} onTerminate={terminate} onSaveKpis={saveKpis} onSetOutcome={setLmOutcome} flash={flash} />}
           {role === "LM"   && view === "reports"   && <Reports records={records} role="LM" onReportExport={reportExport} />}
           {role === "LM"   && view === "settings"  && <LMSettings permissions={lmPermissions} />}
 
-          {role === "DR"   && view === "myprob"    && <DRHome records={records} asDr={asDr} setAsDr={setAsDr} onAccept={acceptReview} onSign={signLetter} />}
+          {role === "DR"   && view === "myprob"    && <DRHome records={records} asDr={asDr} setAsDr={setAsDr} onAccept={acceptReview} onSign={signLetter} onUpdateProfile={updateProfile} />}
 
 
-          {role === "HRBP" && view === "pipeline"  && !active && <HRBPPipeline records={records} onOpen={setActiveId} />}
-          {role === "HRBP" && view === "pipeline"  && active  && <CaseDetail rec={active} role={role} onBack={() => setActiveId(null)} onGenerate={generateLetter} flash={flash} />}
+          {role === "HRBP" && view === "pipeline"  && !active && <HRBPPipeline records={records} onOpen={setActiveId} onAdd={addRecord} />}
+          {role === "HRBP" && view === "pipeline"  && active  && <CaseDetail rec={active} role={role} onBack={() => setActiveId(null)} onGenerate={generateLetter} onHrbpAck={hrbpAcknowledge} onReassignLM={reassignLM} allRecords={records} flash={flash} />}
           {role === "HRBP" && view === "sla"       && <SLATracker records={records} />}
-          {role === "HRBP" && view === "audit"     && <AuditTrail audit={audit} />}
+          {role === "HRBP" && view === "audit"     && <AuditTrail audit={audit} records={records} />}
           {role === "HRBP" && view === "reports"   && <Reports records={records} role="HRBP" onReportExport={reportExport} />}
           {role === "HRBP" && view === "notifications" && <NotificationCenter />}
-          {role === "HRBP" && view === "uat"       && <UatSupport />}
-          {role === "HRBP" && view === "console"   && <SystemConsole onScheduler={runScheduler} onAutoAccept={runAutoAccept} onSla={runSlaCheck} records={records} lmPermissions={lmPermissions} setLmPermissions={setLmPermissions} />}
+          {role === "HRBP" && view === "console"   && <SystemConsole records={records} lmPermissions={lmPermissions} setLmPermissions={setLmPermissions} automations={automations} />}
           {role === "HRBP" && view === "settings_upload" && <SettingsUpload />}
+
+          {role === "HOD"  && <HODPipeline records={records} audit={audit} view={view} />}
 
           {role === "LEAD" && view === "reports"   && <Reports records={records} role="LEAD" onReportExport={reportExport} />}
 
-          {role === "ADMIN" && view === "console"   && <SystemConsole onScheduler={runScheduler} onAutoAccept={runAutoAccept} onSla={runSlaCheck} records={records} lmPermissions={lmPermissions} setLmPermissions={setLmPermissions} />}
-          {role === "ADMIN" && view === "audit"     && <AuditTrail audit={audit} />}
+          {role === "ADMIN" && view === "console"   && <SystemConsole records={records} lmPermissions={lmPermissions} setLmPermissions={setLmPermissions} automations={automations} onPatchAutomation={patchAutomation} />}
+          {role === "ADMIN" && view === "audit"     && <AuditTrail audit={audit} records={records} />}
           {role === "ADMIN" && view === "notifications" && <NotificationCenter />}
-          {role === "ADMIN" && view === "uat"       && <UatSupport />}
         </main>
 
       </div>

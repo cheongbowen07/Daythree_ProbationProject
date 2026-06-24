@@ -4,11 +4,11 @@ import { inputCls } from "../../constants";
 import { Btn } from "../ui";
 import { Modal, Field } from "./Modal";
 
-export default function InitiateModal({ onClose, onAdd }) {
+export default function InitiateModal({ onClose, onAdd, defaultWf = "WF1" }) {
   const [name, setName]             = useState("");
   const [empId, setEmpId]           = useState("");
   const [grade, setGrade]           = useState("E08");
-  const [wf, setWf]                 = useState("WF1");
+  const [wf, setWf]                 = useState(defaultWf);
   const [actingGrade, setActingGrade] = useState("M09");
   const [hodApproved, setHodApproved] = useState(false);
 

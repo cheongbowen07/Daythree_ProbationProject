@@ -1,10 +1,11 @@
+import { useEffect } from "react";
 import { PieChart, Pie, Cell, Tooltip, ResponsiveContainer } from "recharts";
 import { BarChart3 } from "lucide-react";
 import { PIE_COLORS } from "../../constants";
 import { Empty } from "../ui";
 import ReportShell, { exportReport } from "./ReportShell";
 
-export default function R03({ records, role, onReportExport }) {
+export default function R03({ records, role, onReportExport, exportRef }) {
   const outcomes = { Confirmed: 0, Extension: 0, "Not Confirmed": 0, "Early Confirmation": 0 };
   records.forEach((r) => {
     if (r.status === "Complete-Conf")  outcomes[r.outcome === "EarlyConf" ? "Early Confirmation" : "Confirmed"]++;
@@ -14,8 +15,16 @@ export default function R03({ records, role, onReportExport }) {
   const data = Object.entries(outcomes).filter(([, v]) => v > 0).map(([name, value]) => ({ name, value }));
 
   function exp(format) {
-    exportReport(format, "R-03", [["Outcome", "Count"], ...data.map((d) => [d.name, d.value])], "R03-outcomes.csv", role, onReportExport);
+    const total = data.reduce((s, d) => s + d.value, 0);
+    const head = ["Outcome", "Count", "% of Total"];
+    const rows = data.map((d) => [d.name, d.value, total ? `${((d.value / total) * 100).toFixed(1)}%` : "—"]);
+    exportReport(format, "R-03", "Outcome Summary", head, rows, "R03-outcomes.csv", role, onReportExport, {
+      scope: "Organisation-wide",
+      colWidths: [28, 12, 16],
+    });
   }
+
+  useEffect(() => { if (exportRef) exportRef.current = exp; });
 
   return (
     <ReportShell code="R-03" title="Outcome Summary" onExport={exp}>

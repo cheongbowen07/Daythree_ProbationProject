@@ -1,21 +1,31 @@
+import { useEffect } from "react";
 import { Briefcase } from "lucide-react";
 import { totalCycles } from "../../utils/lifecycle";
 import { Empty, Tag, Mono, StatusBadge } from "../ui";
 import ReportShell, { exportReport } from "./ReportShell";
 
-export default function R05({ records, aggregate, role, onReportExport }) {
+export default function R05({ records, aggregate, role, onReportExport, exportRef }) {
   const acting = records.filter((r) => r.wf === "WF2");
 
   function exp(format) {
-    exportReport(
-      format, "R-05",
-      [
-        ["Employee", "Acting grade", "Allowance", "Cycle", "Status"],
-        ...acting.map((r) => [aggregate ? "—" : r.name, r.acting && r.acting.grade, r.acting && r.acting.allowance, `${r.currentCycle}/${totalCycles(r)}`, r.status]),
-      ],
-      "R05-acting-pipeline.csv", role, onReportExport,
-    );
+    const head = ["Employee", "Emp ID", "Acting Grade", "Monthly Allowance", "Cycle Progress", "Start Date", "Status", "Employment Status"];
+    const rows = acting.map((r) => [
+      aggregate ? "(withheld)" : r.name,
+      aggregate ? "(withheld)" : r.empId,
+      r.acting?.grade ?? "—",
+      r.acting?.allowance ?? "—",
+      `${r.currentCycle} of ${totalCycles(r)}`,
+      r.acting?.start ?? "—",
+      r.status,
+      r.employmentStatus,
+    ]);
+    exportReport(format, "R-05", "Acting Probation Pipeline", head, rows, "R05-acting-pipeline.csv", role, onReportExport, {
+      scope: aggregate ? "Aggregate (names withheld — BR-26)" : "Organisation-wide",
+      colWidths: [22, 14, 16, 20, 16, 16, 28, 28],
+    });
   }
+
+  useEffect(() => { if (exportRef) exportRef.current = exp; });
 
   return (
     <ReportShell code="R-05" title="Acting Probation Pipeline" onExport={exp}>

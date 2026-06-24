@@ -1,14 +1,44 @@
 import { Download, FileText } from "lucide-react";
-import { downloadCSV } from "../../utils/csv";
+import { exportPDF, exportXLSX } from "../../utils/export";
 import { Card, Btn, Mono } from "../ui";
 
-export function exportReport(format, code, rows, filename, role, onReportExport) {
-  onReportExport?.(role, code, format, Math.max(0, rows.length - 1));
+export { exportPDF, exportXLSX };
+
+const META = () => [
+  ["Report generated", new Date().toLocaleString("en-MY")],
+  ["System", "FAITH Probation · Daythree Workflow"],
+  ["Classification", "Internal — Confidential"],
+];
+
+// Convenience: build a single-sheet PDF + XLSX from flat head/rows
+export function exportReport(format, code, title, head, rows, filename, role, onReportExport, extra = {}) {
+  onReportExport?.(role, code, format, rows.length);
+  const today = new Date().toLocaleDateString("en-MY", { day: "2-digit", month: "short", year: "numeric" });
+
   if (format === "pdf") {
-    window.print();
-    return;
+    exportPDF({
+      filename: filename.replace(/\.\w+$/, ".pdf"),
+      title,
+      subtitle: `${code} · Exported ${today} · Access scope: ${extra.scope || "—"}`,
+      code,
+      sections: [
+        ...(extra.sections || []),
+        { head, body: rows },
+        { text: "FAITH Probation · Internal use only · Not for external distribution." },
+      ],
+    });
+  } else {
+    exportXLSX({
+      filename: filename.replace(/\.\w+$/, ".xlsx"),
+      sheets: [{
+        name:    code,
+        head,
+        rows,
+        colWidths: extra.colWidths,
+        metaRows: META().map(([k, v]) => [`${k}: ${v}`]),
+      }],
+    });
   }
-  downloadCSV(filename, rows);
 }
 
 export default function ReportShell({ code, title, onExport, children }) {
@@ -19,7 +49,7 @@ export default function ReportShell({ code, title, onExport, children }) {
           <Mono className="text-[11px] text-cyan-700">{code}</Mono> {title}
         </div>
         <div className="flex gap-2">
-          <Btn size="sm" variant="ghost" icon={Download} onClick={() => onExport("csv")}>Excel/CSV</Btn>
+          <Btn size="sm" variant="ghost" icon={Download} onClick={() => onExport("xlsx")}>Excel</Btn>
           <Btn size="sm" variant="ghost" icon={FileText} onClick={() => onExport("pdf")}>PDF</Btn>
         </div>
       </div>

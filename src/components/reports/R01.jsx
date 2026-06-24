@@ -1,8 +1,9 @@
+import { useEffect } from "react";
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from "recharts";
 import { statusGroup } from "../../utils/status";
 import ReportShell, { exportReport } from "./ReportShell";
 
-export default function R01({ records, aggregate, role, onReportExport }) {
+export default function R01({ records, aggregate, role, onReportExport, exportRef }) {
   const groups = {};
   records.forEach((r) => { const g = statusGroup(r.status); groups[g] = (groups[g] || 0) + 1; });
   const data    = Object.entries(groups).map(([name, value]) => ({ name, value }));
@@ -12,8 +13,15 @@ export default function R01({ records, aggregate, role, onReportExport }) {
   ];
 
   function exp(format) {
-    exportReport(format, "R-01", [["Status group", "Count"], ...data.map((d) => [d.name, d.value])], "R01-status-summary.csv", role, onReportExport);
+    const head = ["Status Group", "Count", "Grade Band", "Grade Count"];
+    const rows = data.map((d, i) => [d.name, d.value, byGrade[i]?.name ?? "", byGrade[i]?.value ?? ""]);
+    exportReport(format, "R-01", "Probation Status Summary", head, rows, "R01-status-summary.csv", role, onReportExport, {
+      scope: aggregate ? "Aggregate" : "Organisation-wide",
+      colWidths: [32, 12, 20, 14],
+    });
   }
+
+  useEffect(() => { if (exportRef) exportRef.current = exp; });
 
   return (
     <ReportShell code="R-01" title="Probation Status Summary" onExport={exp}>

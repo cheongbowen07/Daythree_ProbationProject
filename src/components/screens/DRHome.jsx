@@ -1,6 +1,7 @@
 import { useState, useRef, useEffect } from "react";
-import { ChevronDown, PenLine, CheckCircle2, Clock, FileSignature } from "lucide-react";
+import { ChevronDown, PenLine, CheckCircle2, Clock, FileSignature, Bell, AlertTriangle, User } from "lucide-react";
 import { TODAY, TONE_CLASS } from "../../constants";
+import EmployeeProfile from "../EmployeeProfile";
 import { monthFromStatus } from "../../utils/status";
 import { Card, Btn, StatusBadge, Tag, Mono, RpmDots } from "../ui";
 import LifecycleRail from "../LifecycleRail";
@@ -9,13 +10,12 @@ function SignaturePad({ value, onChange }) {
   const canvasRef  = useRef(null);
   const drawingRef = useRef(false);
 
-  useEffect(() => {
-    const canvas = canvasRef.current;
-    if (!canvas) return;
+  function initCanvas(canvas) {
     const rect  = canvas.getBoundingClientRect();
+    if (rect.width === 0 || rect.height === 0) return;
     const ratio = window.devicePixelRatio || 1;
-    canvas.width  = Math.max(1, Math.floor(rect.width  * ratio));
-    canvas.height = Math.max(1, Math.floor(rect.height * ratio));
+    canvas.width  = Math.floor(rect.width  * ratio);
+    canvas.height = Math.floor(rect.height * ratio);
     const ctx = canvas.getContext("2d");
     ctx.setTransform(ratio, 0, 0, ratio, 0, 0);
     ctx.lineCap     = "round";
@@ -24,12 +24,16 @@ function SignaturePad({ value, onChange }) {
     ctx.strokeStyle = "#4D4D4D";
     ctx.fillStyle   = "#fff";
     ctx.fillRect(0, 0, rect.width, rect.height);
-    if (value) {
-      const img = new Image();
-      img.onload = () => ctx.drawImage(img, 0, 0, rect.width, rect.height);
-      img.src = value;
-    }
-  }, [value]);
+  }
+
+  useEffect(() => {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+
+    const ro = new ResizeObserver(() => { initCanvas(canvas); });
+    ro.observe(canvas);
+    return () => ro.disconnect();
+  }, []);
 
   function point(e) {
     const rect = canvasRef.current.getBoundingClientRect();
@@ -88,9 +92,50 @@ function SignaturePad({ value, onChange }) {
   );
 }
 
+const REMINDER_THRESHOLD = 7;
+
+function ReminderBanner({ reminders }) {
+  if (!reminders || reminders === 0) return null;
+  const daysLeft   = Math.max(0, REMINDER_THRESHOLD - reminders);
+  const urgent     = daysLeft <= 2;
+  const veryUrgent = daysLeft === 0;
+
+  return (
+    <div className={`flex items-start gap-3 rounded-xl px-4 py-3 mb-4 ring-1 ${
+      veryUrgent ? "bg-rose-50 ring-rose-200 text-rose-800"
+      : urgent   ? "bg-amber-50 ring-amber-200 text-amber-800"
+      :            "bg-blue-50 ring-blue-200 text-blue-800"
+    }`}>
+      <div className="shrink-0 mt-0.5">
+        {urgent ? <AlertTriangle size={16} /> : <Bell size={16} />}
+      </div>
+      <div className="flex-1">
+        <div className="text-sm font-semibold">
+          {veryUrgent
+            ? "Auto-accept will fire on the next reminder cycle"
+            : `Reminder ${reminders} of ${REMINDER_THRESHOLD} sent`}
+        </div>
+        <p className="text-xs mt-0.5 opacity-80">
+          {veryUrgent
+            ? "You have not acknowledged this review. The system will auto-accept on your behalf and log the actor as System (A-02)."
+            : `You have ${daysLeft} day${daysLeft !== 1 ? "s" : ""} remaining to acknowledge before the system auto-accepts (A-02). Daily reminders are being sent via N-04.`}
+        </p>
+      </div>
+      <div className="shrink-0 text-right">
+        <div className={`text-lg font-black ${veryUrgent ? "text-rose-600" : urgent ? "text-amber-600" : "text-blue-600"}`}>
+          {daysLeft}d
+        </div>
+        <div className="text-[10px] opacity-60">remaining</div>
+      </div>
+    </div>
+  );
+}
+
 function DRAcceptPanel({ rec, onAccept }) {
   const n  = monthFromStatus(rec.status);
   const rv = rec.reviews.find((v) => v.cycle === n);
+  const [drComments, setDrComments] = useState("");
+
   return (
     <div className="p-5 rounded-lg ring-1 brand-card bg-white">
       <div className={`grid place-items-center w-9 h-9 rounded-lg shrink-0 mb-3 ${TONE_CLASS.accept}`}></div>
@@ -98,17 +143,42 @@ function DRAcceptPanel({ rec, onAccept }) {
         <span className="font-semibold text-slate-800">Acknowledge your Month {n} review</span>
         <span className="text-[10px] text-slate-400" style={{ fontFamily: "var(--mono)" }}>S-05 / F-04</span>
       </div>
-      <p className="text-sm text-slate-500 mb-3">Daily reminders continue until you accept. If no action is taken within 7 days, the system auto-accepts (A-02) and logs the actor as System.</p>
+
+      <ReminderBanner reminders={rec.reminders} />
+
       <div className="rounded-lg ring-1 ring-slate-200 bg-slate-50 p-4 mb-3">
         <div className="flex items-center justify-between mb-2">
           <span className="text-sm font-medium text-slate-700">Manager assessment</span>
           <RpmDots score={rv ? rv.rpm : 3} />
         </div>
         <p className="text-sm text-slate-500">{rv && rv.rec ? rv.rec : "Performance against your KPIs for this cycle."}</p>
+        {rv?.kpiSummary && (
+          <p className="text-xs text-slate-400 mt-2 italic border-t border-slate-100 pt-2">KPI summary: {rv.kpiSummary}</p>
+        )}
       </div>
+
+      {/* Optional DR comments — S-05 */}
+      <div className="mb-4">
+        <label className="text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1 block">Your comments <span className="font-normal normal-case">(optional)</span></label>
+        <textarea
+          value={drComments}
+          onChange={(e) => setDrComments(e.target.value)}
+          rows={2}
+          placeholder="Add any remarks before accepting…"
+          className="w-full bg-slate-50 ring-1 ring-slate-200 rounded-lg px-3 py-2 text-sm outline-none focus:ring-indigo-400 resize-none"
+        />
+      </div>
+
       <div className="flex items-center gap-3">
-        <Btn icon={CheckCircle2} onClick={() => onAccept(rec.id, rec.name)}>Accept review</Btn>
-        <span className="text-xs text-amber-600 flex items-center gap-1.5"><Clock size={13} /> Auto-accepts in 7 days · {rec.reminders || 0} reminders sent</span>
+        <Btn icon={CheckCircle2} onClick={() => onAccept(rec.id, rec.name, drComments)}>Accept review</Btn>
+        <div className="flex items-center gap-1.5 text-xs text-slate-500">
+          <Clock size={13} />
+          <span>
+            {rec.reminders > 0
+              ? <><span className="font-medium text-amber-600">{rec.reminders}</span> of {REMINDER_THRESHOLD} daily reminder{rec.reminders !== 1 ? "s" : ""} sent</>
+              : "Daily reminders will start after submission"}
+          </span>
+        </div>
       </div>
     </div>
   );
@@ -191,7 +261,8 @@ function ESignPanel({ rec, onSign }) {
   );
 }
 
-export default function DRHome({ records, asDr, setAsDr, onAccept, onSign }) {
+export default function DRHome({ records, asDr, setAsDr, onAccept, onSign, onUpdateProfile }) {
+  const [tab, setTab] = useState("probation");
   const rec       = records.find((r) => r.id === asDr) || records[0];
   const acceptDue = /-DR-Acpt$/.test(rec.status);
   const signDue   = /Sign-Off$/.test(rec.status);
@@ -217,8 +288,13 @@ export default function DRHome({ records, asDr, setAsDr, onAccept, onSign }) {
         <div className="mb-5 flex flex-wrap gap-2">
           <span className="text-xs text-slate-400 self-center">Needs action:</span>
           {drsWithAction.map((r) => (
-            <button key={r.id} onClick={() => setAsDr(r.id)} className={`text-xs px-2.5 py-1 rounded-full ring-1 ${r.id === asDr ? "bg-cyan-50 ring-cyan-300 text-cyan-700" : "bg-white ring-slate-200 text-slate-600 hover:bg-slate-50"}`}>
+            <button key={r.id} onClick={() => setAsDr(r.id)} className={`text-xs px-2.5 py-1 rounded-full ring-1 flex items-center gap-1.5 ${r.id === asDr ? "bg-cyan-50 ring-cyan-300 text-cyan-700" : "bg-white ring-slate-200 text-slate-600 hover:bg-slate-50"}`}>
               {r.name.split(" ")[0]} · {/Sign-Off$/.test(r.status) ? "sign" : "accept"}
+              {(r.reminders > 0) && (
+                <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded-full ${r.reminders >= REMINDER_THRESHOLD - 1 ? "bg-rose-100 text-rose-600" : "bg-amber-100 text-amber-700"}`}>
+                  {r.reminders}
+                </span>
+              )}
             </button>
           ))}
         </div>
@@ -239,26 +315,71 @@ export default function DRHome({ records, asDr, setAsDr, onAccept, onSign }) {
         </div>
       </div>
 
-      <Card className="px-5 py-4 mb-5"><LifecycleRail rec={rec} /></Card>
+      {/* Tab switcher */}
+      <div className="flex gap-1 mb-5 border-b border-slate-200">
+        {[["probation", "My Probation"], ["profile", "My Profile"]].map(([key, label]) => (
+          <button key={key} onClick={() => setTab(key)}
+            className={`px-4 py-2 text-sm font-medium border-b-2 -mb-px transition ${tab === key ? "border-violet-500 text-violet-700" : "border-transparent text-slate-500 hover:text-slate-700"}`}>
+            {label}
+          </button>
+        ))}
+      </div>
 
-      {acceptDue && <DRAcceptPanel rec={rec} onAccept={onAccept} />}
-      {signDue   && <ESignPanel rec={rec} onSign={onSign} />}
+      {tab === "profile" && (
+        <EmployeeProfile rec={rec} editable onSaveProfile={onUpdateProfile} />
+      )}
 
-      {!acceptDue && !signDue && (
-        <div className="grid sm:grid-cols-2 gap-5">
-          <Card className="p-5">
-            <div className="text-sm font-semibold text-slate-800 mb-3">KPIs & targets</div>
-            {rec.kpis.length
-              ? <ul className="space-y-2">{rec.kpis.map((k, i) => <li key={i} className="text-sm text-slate-600 flex justify-between gap-2"><span>{k.name}</span><Tag className="bg-cyan-50 text-cyan-700">{k.weight}%</Tag></li>)}</ul>
-              : <p className="text-sm text-slate-400">Awaiting KPI setup by your manager.</p>}
-          </Card>
-          <Card className="p-5">
-            <div className="text-sm font-semibold text-slate-800 mb-3">Review history</div>
-            {rec.reviews.length
-              ? <div className="space-y-2">{[...rec.reviews].sort((a, b) => a.cycle - b.cycle).map((rv) => <div key={rv.cycle} className="flex items-center gap-2 text-sm"><Tag className="bg-slate-100 text-slate-600">Mth {rv.cycle}</Tag><RpmDots score={rv.rpm} /></div>)}</div>
-              : <p className="text-sm text-slate-400">No reviews yet.</p>}
-          </Card>
-        </div>
+      {tab === "probation" && (
+        <>
+          <Card className="px-5 py-4 mb-5"><LifecycleRail rec={rec} /></Card>
+
+          {acceptDue && <DRAcceptPanel rec={rec} onAccept={onAccept} />}
+          {signDue   && <ESignPanel rec={rec} onSign={onSign} />}
+
+          {!acceptDue && !signDue && (
+            <div className="grid sm:grid-cols-2 gap-5">
+              <Card className="p-5">
+                <div className="text-sm font-semibold text-slate-800 mb-3">KPIs & targets</div>
+                {rec.kpis.length > 0 ? (
+                  <div className="space-y-3">
+                    {rec.kpis.map((k, i) => (
+                      <div key={i} className="flex items-start justify-between gap-3 py-2 border-b border-slate-50 last:border-0">
+                        <div>
+                          <div className="text-sm font-medium text-slate-700">{k.name}</div>
+                          {k.desc && <div className="text-xs text-slate-400 mt-0.5">{k.desc}</div>}
+                          {k.target && <div className="text-xs text-slate-500 mt-0.5">Target: {k.target}</div>}
+                        </div>
+                        <Tag className="bg-cyan-50 text-cyan-700 shrink-0">{k.weight}%</Tag>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <p className="text-sm text-slate-400">Awaiting KPI setup by your manager.</p>
+                )}
+              </Card>
+              <Card className="p-5">
+                <div className="text-sm font-semibold text-slate-800 mb-3">Review history</div>
+                {rec.reviews.length > 0 ? (
+                  <div className="space-y-3">
+                    {[...rec.reviews].sort((a, b) => a.cycle - b.cycle).map((rv) => (
+                      <div key={rv.cycle} className="py-2 border-b border-slate-50 last:border-0">
+                        <div className="flex items-center gap-3 mb-1">
+                          <Tag className="bg-slate-100 text-slate-600 shrink-0">Month {rv.cycle}</Tag>
+                          <RpmDots score={rv.rpm} />
+                          {rv.reviewDate && <span className="text-xs text-slate-400 ml-auto">{rv.reviewDate}</span>}
+                        </div>
+                        {rv.rec && <p className="text-xs text-slate-500 mt-1">{rv.rec}</p>}
+                        {rv.kpiSummary && <p className="text-xs text-slate-400 mt-1 italic">KPI summary: {rv.kpiSummary}</p>}
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <p className="text-sm text-slate-400">No reviews yet.</p>
+                )}
+              </Card>
+            </div>
+          )}
+        </>
       )}
     </div>
   );

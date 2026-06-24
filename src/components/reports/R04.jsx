@@ -1,18 +1,27 @@
+import { useEffect } from "react";
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from "recharts";
 import { Tag } from "../ui";
 import ReportShell, { exportReport } from "./ReportShell";
 
-export default function R04({ records, role, onReportExport }) {
+export default function R04({ records, role, onReportExport, exportRef }) {
   const data = [1, 2, 3, 4, 5, 6].map((c) => {
     const vals = records.flatMap((r) => r.reviews.filter((v) => v.cycle === c).map((v) => v.rpm));
-    return { cycle: `Mth ${c}`, avg: vals.length ? +(vals.reduce((a, b) => a + b, 0) / vals.length).toFixed(2) : null };
+    return { cycle: `Month ${c}`, avg: vals.length ? +(vals.reduce((a, b) => a + b, 0) / vals.length).toFixed(2) : null };
   }).filter((d) => d.avg !== null);
 
   const belowTotal = records.flatMap((r) => r.reviews).filter((v) => v.rpm < 3).length;
 
   function exp(format) {
-    exportReport(format, "R-04", [["Cycle", "Avg RPM"], ...data.map((d) => [d.cycle, d.avg])], "R04-rpm-trends.csv", role, onReportExport);
+    const head = ["Review Cycle", "Avg RPM Score", "Rating"];
+    const rows = data.map((d) => [d.cycle, d.avg, d.avg >= 4 ? "Strong" : d.avg >= 3 ? "Meets Expectations" : "Below Threshold"]);
+    exportReport(format, "R-04", "RPM Score Trends", head, rows, "R04-rpm-trends.csv", role, onReportExport, {
+      scope: "Organisation-wide",
+      colWidths: [18, 18, 24],
+      sections: [{ keyValues: [["Below-threshold reviews", belowTotal], ["Cycles tracked", data.length]] }],
+    });
   }
+
+  useEffect(() => { if (exportRef) exportRef.current = exp; });
 
   return (
     <ReportShell code="R-04" title="RPM Score Trends" onExport={exp}>

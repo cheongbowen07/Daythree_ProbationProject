@@ -19,11 +19,15 @@ export default function LifecycleRail({ rec }) {
             <div key={s.key} className="flex items-center">
               <div className="flex flex-col items-center w-[88px] text-center">
                 <div
-                  className={`grid place-items-center w-7 h-7 rounded-full text-[11px] font-semibold ring-2 transition
-                    ${past   ? "bg-[#3CC49F] text-[#0F4B37] ring-[#3CC49F]" : ""}
-                    ${isCur  ? "text-white ring-[#C8102E]" : ""}
-                    ${future ? "bg-white text-slate-300 ring-[#C3B1F5]" : ""}`}
-                  style={isCur ? { background: "var(--brand-red)" } : {}}
+                  className={`grid place-items-center w-7 h-7 rounded-full text-[11px] font-semibold transition
+                    ${past   ? "bg-[#3CC49F] text-[#0F4B37]" : ""}
+                    ${isCur  ? "text-white" : ""}
+                    ${future ? "bg-white text-slate-300" : ""}`}
+                  style={{
+                    ...(isCur  ? { background: "var(--brand-red)" } : {}),
+                    ...(future ? { border: "2px solid #C3B1F5" } : {}),
+                    ...(past   ? {} : isCur ? { border: "2px solid #C8102E" } : {}),
+                  }}
                 >
                   {past ? <CheckCircle2 size={15} /> : i + 1}
                 </div>

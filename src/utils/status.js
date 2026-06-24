@@ -1,21 +1,21 @@
 export function statusLabel(s) {
   const map = {
-    "KPI-Review":             "Prob – KPI Review",
-    "KPI-Review(Acting)":     "Prob – KPI Review (Acting)",
-    "Pending-Letter":         "Prob – Pending Letter",
-    "Pending-Letter(Acting)": "Prob – Pending Letter (Acting)",
+    "KPI-Review":             "Probation –KPI Review",
+    "KPI-Review(Acting)":     "Probation –KPI Review (Acting)",
+    "Pending-Letter":         "Probation –Pending Letter",
+    "Pending-Letter(Acting)": "Probation –Pending Letter (Acting)",
     "Ext-Pending-Letter":     "Extension – Pending Letter",
     "Complete-Conf":          "Complete – Confirmed",
     "Complete-NConf":         "Complete – Not Confirmed",
-    "Terminated":             "Prob – Terminated",
+    "Terminated":             "Probation –Terminated",
   };
   if (map[s]) return map[s];
   let m;
-  if ((m = s.match(/^Mth(\d)-Review$/)))      return `Prob – Month ${m[1]} Review`;
-  if ((m = s.match(/^Mth(\d)-DR-Acpt$/)))     return `Prob – Month ${m[1]} DR Acceptance`;
+  if ((m = s.match(/^Mth(\d)-Review$/)))      return `Probation –Month ${m[1]} Review`;
+  if ((m = s.match(/^Mth(\d)-DR-Acpt$/)))     return `Probation –Month ${m[1]} DR Acceptance`;
   if ((m = s.match(/^Ext-Mth(\d)-Review$/)))  return `Extension – Month ${m[1]} Review`;
   if ((m = s.match(/^Ext-Mth(\d)-DR-Acpt$/))) return `Extension – Month ${m[1]} DR Acceptance`;
-  if ((m = s.match(/^(.*)-Letter$/)))          return `Prob – ${m[1]} Letter`;
+  if ((m = s.match(/^(.*)-Letter$/)))          return `Probation –${m[1]} Letter`;
   if ((m = s.match(/^Pending-(.*)-Sign-Off$/))) return `Pending ${m[1]} Sign-Off`;
   return s;
 }

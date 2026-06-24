@@ -11,7 +11,7 @@ export default function FilterModal({ onClose, onApply }) {
           <select className="w-full bg-slate-50 ring-1 ring-slate-200 rounded-lg p-2 text-sm outline-none">
             <option>All Ongoing</option>
             <option>KPI Pending</option>
-            <option>Mth 1-3 Review</option>
+            <option>Month 1-3 Review</option>
             <option>Pending Signature</option>
             <option>Extension Ongoing</option>
             <option>SLA Breached Only</option>

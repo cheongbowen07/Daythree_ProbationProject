@@ -11,7 +11,7 @@ export default function TerminateModal({ onClose, onSubmit }) {
   return (
     <Modal title="Early termination" code="F-11" onClose={onClose}>
       <div className="rounded-lg bg-rose-50 ring-1 ring-rose-200 p-3 text-sm text-rose-700 mb-3">
-        <AlertTriangle size={14} className="inline mr-1" /> This is terminal. The status becomes Prob-Terminated and all pending tasks and reminders are cancelled.
+        <AlertTriangle size={14} className="inline mr-1" /> This is terminal. The status becomes Probation Terminated and all pending tasks and reminders are cancelled.
       </div>
       <div className="space-y-3">
         <Field label="Reason">

@@ -91,28 +91,6 @@ export default function About() {
           This is a prototype, not the production system. There is no backend, real authentication, notification engine, document store, or persistence — refreshing resets the data. It is a faithful model of the workflow logic and screens to validate behaviour and accelerate the real FAITH build, not a deployable application. Open items from the FRD (OI-05 retention, OI-11 legal sign-off on the e-signature, OI-12 typed vs drawn signature) remain real decisions for the build.
         </p>
       </Card>
-
-      <Card className="p-5 ring-rose-100">
-        <div className="text-sm font-semibold text-slate-800 mb-3 flex items-center gap-2">
-          <AlertTriangle size={15} className="text-rose-500" /> Out of scope
-        </div>
-        <ul className="space-y-2.5">
-          {[
-            { label: "DocuSign integration", note: "Removed per decision 27 Apr 2026 — internal e-signature solution adopted instead." },
-            { label: "Performance Improvement Plan (PIP)", note: "Post-non-confirmation PIP processes are not covered by this module." },
-            { label: "Recruitment & onboarding module", note: "No changes to recruitment or onboarding flows are included in this scope." },
-            { label: "Third-party payroll integration", note: "Payroll system integration is excluded unless separately scoped and contracted." },
-            { label: "Historical data migration", note: "Migration of past probation records from legacy systems is out of scope." },
-            { label: "Mobile application", note: "FAITH is a web interface only; tablet-responsive but no native mobile app development." },
-            { label: "Scheduled / automated report delivery", note: "Email scheduling and automated report dispatch are not included in this release." },
-          ].map(({ label, note }) => (
-            <li key={label} className="flex items-start gap-3 text-sm">
-              <span className="mt-0.5 w-1.5 h-1.5 rounded-full bg-rose-400 shrink-0 mt-1.5" />
-              <span><span className="font-semibold text-slate-700">{label}</span> — <span className="text-slate-500">{note}</span></span>
-            </li>
-          ))}
-        </ul>
-      </Card>
     </div>
   );
 }
