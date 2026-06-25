@@ -3,7 +3,7 @@ import { Card, PageHead, Mono, Tag, Stat } from "../ui";
 
 const SLA_LIMIT = 3;
 
-export default function SLATracker({ records }) {
+export default function SLATracker({ records, onOpen }) {
   const pending = records
     .filter((r) => r.status.includes("Pending-Letter"))
     .sort((a, b) => (b.slaBreached ? 1 : 0) - (a.slaBreached ? 1 : 0));
@@ -46,7 +46,7 @@ export default function SLATracker({ records }) {
                 const elapsed   = r.slaDays || 0;
                 const remaining = Math.max(0, SLA_LIMIT - elapsed);
                 return (
-                  <tr key={r.id} className={`border-b border-slate-50 ${r.slaBreached ? "bg-rose-50/40" : ""}`}>
+                  <tr key={r.id} onClick={() => onOpen?.(r.id)} className={`border-b border-slate-50 cursor-pointer hover:bg-slate-50/70 ${r.slaBreached ? "bg-rose-50/40" : ""}`}>
                     <td className="px-4 py-3">
                       <div className="font-medium text-slate-800">{r.name}</div>
                       <Mono className="text-[11px] text-slate-400">{r.empId}</Mono>

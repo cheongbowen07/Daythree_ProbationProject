@@ -15,13 +15,14 @@ export default function LMDashboard({ records, onOpen, onDRListEscalate, onAdd }
   const [addWf, setAddWf]               = useState("WF1");
 
   const team     = records.filter((r) => r.lm === LM_SELF);
+  const normal   = team.filter((r) => r.wf !== "WF2");
   const acting   = team.filter((r) => r.wf === "WF2");
-  const view     = tab === "acting" ? acting : team;
+  const view     = tab === "normal" ? normal : tab === "acting" ? acting : team;
   const filtered = view.filter((r) => (r.name + r.empId).toLowerCase().includes(q.toLowerCase()));
   const pending  = team.filter((r) => pendingFor(r, "LM")).length;
 
   return (
-    <div className="fadeUp">
+    <div className="fadeUp h-full min-h-0 flex flex-col">
       <PageHead
         code="S-01 · MyTeamProb"
         title="My Team Probation"
@@ -44,7 +45,11 @@ export default function LMDashboard({ records, onOpen, onDRListEscalate, onAdd }
 
       {/* S-11 tab switcher */}
       <div className="flex gap-1 mb-4 border-b border-slate-200">
-        {[["all", "All probations", `S-01`], ["acting", `Acting-role (WF2) · S-11`, `${acting.length}`]].map(([key, label, badge]) => (
+        {[
+          ["all", "All probations", `S-01`],
+          ["normal", "Normal probation", `${normal.length}`],
+          ["acting", `Acting-role (WF2) · S-11`, `${acting.length}`],
+        ].map(([key, label, badge]) => (
           <button key={key} onClick={() => setTab(key)}
             className={`px-4 py-2 text-sm font-medium border-b-2 -mb-px transition flex items-center gap-2 ${tab === key ? "border-violet-500 text-violet-700" : "border-transparent text-slate-500 hover:text-slate-700"}`}>
             {label}
@@ -53,19 +58,19 @@ export default function LMDashboard({ records, onOpen, onDRListEscalate, onAdd }
         ))}
       </div>
 
-      <Card>
+      <Card className="flex-1 min-h-0 overflow-hidden flex flex-col">
         <div className="flex items-center gap-2 px-4 py-3 border-b border-slate-100">
           <Search size={16} className="text-slate-400" />
           <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Search name or employee ID…" className="flex-1 text-sm outline-none placeholder:text-slate-400 bg-transparent" />
         </div>
-        <div className="overflow-x-auto">
+        <div className="flex-1 min-h-0 overflow-auto">
           <table className="w-full text-sm">
-            <thead>
+            <thead className="sticky top-0 z-10 bg-white">
               <tr className="text-left text-[11px] uppercase tracking-wider text-slate-400 border-b border-slate-100">
                 <th className="px-4 py-2.5 font-medium">Employee</th>
                 <th className="px-4 py-2.5 font-medium">Grade</th>
                 {tab === "acting"
-                  ? <><th className="px-4 py-2.5 font-medium">Acting grade</th><th className="px-4 py-2.5 font-medium">Allowance</th><th className="px-4 py-2.5 font-medium">Acting since</th></>
+                  ? <><th className="px-4 py-2.5 font-medium">Acting grade</th><th className="px-4 py-2.5 font-medium">Allowance</th><th className="px-4 py-2.5 font-medium">Acting since</th><th className="px-4 py-2.5 font-medium">Outcome</th></>
                   : <th className="px-4 py-2.5 font-medium">Type</th>}
                 <th className="px-4 py-2.5 font-medium">Start date</th>
                 <th className="px-4 py-2.5 font-medium">Status</th>
@@ -92,6 +97,7 @@ export default function LMDashboard({ records, onOpen, onDRListEscalate, onAdd }
                           <td className="px-4 py-3"><Tag className="bg-violet-50 text-violet-700">{r.acting?.grade || "—"}</Tag></td>
                           <td className="px-4 py-3 text-xs text-slate-500 whitespace-nowrap">{r.acting?.allowance || "—"}</td>
                           <td className="px-4 py-3 text-xs text-slate-500 whitespace-nowrap">{r.acting?.start || "—"}</td>
+                          <td className="px-4 py-3 text-xs text-slate-500">{r.outcome ? <Tag className="bg-emerald-50 text-emerald-700">{r.outcome === "ActingConf" ? "Confirmed" : r.outcome === "ActingNConf" ? "Non-Confirmed" : r.outcome}</Tag> : <span className="text-slate-300">—</span>}</td>
                         </>
                       : <td className="px-4 py-3"><Tag className={r.wf === "WF2" ? "bg-violet-50 text-violet-700" : "bg-blue-50 text-blue-700"}>{r.wf === "WF2" ? "Acting" : "New-hire"}</Tag></td>}
                     <td className="px-4 py-3 text-slate-500 text-xs whitespace-nowrap">{r.joined || "—"}</td>
@@ -121,6 +127,7 @@ export default function LMDashboard({ records, onOpen, onDRListEscalate, onAdd }
       {addOpen && (
         <InitiateModal
           defaultWf={addWf}
+          existingRecords={records}
           onClose={() => setAddOpen(false)}
           onAdd={(r) => { onAdd?.(r); setAddOpen(false); }}
         />
@@ -128,6 +135,7 @@ export default function LMDashboard({ records, onOpen, onDRListEscalate, onAdd }
 
       {showEscalate && (
         <DRListEscalateModal
+          lmName={LM_SELF}
           onClose={() => setShowEscalate(false)}
           onSubmit={(type, ref, desc) => { onDRListEscalate(type, ref, desc); setShowEscalate(false); }}
         />

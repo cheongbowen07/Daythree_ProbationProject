@@ -1,16 +1,45 @@
 import { useState } from "react";
-import { ChevronRight, ChevronDown, ClipboardList, PenLine, Bell, FileSignature, Send, Inbox, XCircle, Lock, Gavel, UserCog, Edit2 } from "lucide-react";
-import { TODAY, TONE_CLASS } from "../../constants";
+import { ChevronRight, ChevronDown, ClipboardList, PenLine, Bell, FileSignature, Send, Inbox, XCircle, Lock, Gavel, UserCog, Edit2, ShieldCheck } from "lucide-react";
+import { TODAY, TONE_CLASS, OUTCOME_LABEL } from "../../constants";
 import { monthFromStatus, isActiveProbation } from "../../utils/status";
 import { totalCycles, daysCap, outcomeOptions } from "../../utils/lifecycle";
-import { Card, Btn, StatusBadge, Tag, Mono, Row, RpmDots } from "../ui";
+import { kpisForCycle } from "../../utils/kpi";
+import { Card, Btn, StatusBadge, Tag, Mono, RpmDots } from "../ui";
 import LifecycleRail from "../LifecycleRail";
 import KpiModal from "../modals/KpiModal";
 import ReviewModal from "../modals/ReviewModal";
 import EscalateModal from "../modals/EscalateModal";
 import TerminateModal from "../modals/TerminateModal";
+import EarlyConfModal from "../modals/EarlyConfModal";
 import EmployeeProfile from "../EmployeeProfile";
 import ReassignLMModal from "../modals/ReassignLMModal";
+
+function CompletionRecord({ rec }) {
+  const c = rec.completion;
+  return (
+    <Card className="p-5">
+      <div className="text-sm font-semibold text-slate-800 mb-1 flex items-center gap-2">
+        <FileSignature size={16} /> Signing completion record · A-09
+      </div>
+      <div className="text-[10px] text-emerald-600 bg-emerald-50 ring-1 ring-emerald-100 rounded px-2 py-0.5 inline-flex items-center gap-1 mb-4 font-semibold">
+        ✓ Immutable · append-only · tamper-evident
+      </div>
+      <dl className="grid sm:grid-cols-2 gap-x-6 gap-y-1.5 text-sm">
+        {[
+          ["Employee ID", c.empId],
+          ["Name",        c.empName],
+          ["Date / Time", c.ts],
+          ["Status",      "Signed — confirmed"],
+        ].map(([k, v]) => (
+          <div key={k} className="flex justify-between gap-3 border-b border-slate-50 py-1">
+            <dt className="text-slate-400 shrink-0">{k}</dt>
+            <dd className="text-slate-700 text-right font-medium" style={k === "Employee ID" ? { fontFamily: "var(--mono)", fontSize: "11px" } : {}}>{v}</dd>
+          </div>
+        ))}
+      </dl>
+    </Card>
+  );
+}
 
 function ActionPanel({ code, title, desc, tone: t, children }) {
   return (
@@ -74,7 +103,8 @@ function LetterGenPanel({ rec, onGenerate }) {
   const opts      = outcomeOptions(rec);
   const outcome   = rec.outcome;
   const selOpt    = opts.find((o) => o[0] === outcome);
-  const [legal, setLegal] = useState(false);
+  const [legal, setLegal]           = useState(false);
+  const [hrbpNotes, setHrbpNotes]   = useState("");
   const needLegal = outcome === "NConf";
   const ready     = selOpt && (!needLegal || legal);
 
@@ -147,7 +177,12 @@ function LetterGenPanel({ rec, onGenerate }) {
         <p className="mt-1.5 text-slate-400 text-xs">Merge fields populated from Employee Profile · signed copy stored in FAITH document library.</p>
       </div>
 
-      <Btn icon={Send} disabled={!ready} onClick={() => onGenerate(rec.id, outcome, selOpt[1], selOpt[2], legal)}>
+      <div className="mb-4">
+        <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1 block">HRBP Notes <span className="font-normal normal-case">(optional)</span></label>
+        <textarea value={hrbpNotes} onChange={(e) => setHrbpNotes(e.target.value)} rows={2} className="w-full bg-slate-50 ring-1 ring-slate-200 rounded-lg px-3 py-2 text-sm outline-none focus:ring-indigo-400 resize-none" placeholder="Internal notes for this letter generation…" />
+      </div>
+
+      <Btn icon={Send} disabled={!ready} onClick={() => onGenerate(rec.id, outcome, selOpt[1], selOpt[2], legal, hrbpNotes)}>
         Generate &amp; dispatch for signing
       </Btn>
     </Card>
@@ -158,10 +193,6 @@ const LM_OUTCOME_STATUSES  = ["LM-Outcome", "LM-Outcome(Acting)", "Ext-LM-Outcom
 const HRBP_ACK_STATUSES    = ["HRBP-Ack", "HRBP-Ack(Acting)", "Ext-HRBP-Ack"];
 const LETTER_DUE_STATUSES  = ["Pending-Letter", "Pending-Letter(Acting)", "Ext-Pending-Letter"];
 
-const OUTCOME_LABELS = {
-  Conf: "Confirmation", EarlyConf: "Early Confirmation", Ext: "Extension",
-  NConf: "Non-Confirmation", ActingConf: "Acting Confirmation", ActingNConf: "Acting Non-Confirmation",
-};
 const OUTCOME_LT = {
   Conf: "LT-01", EarlyConf: "LT-04", Ext: "LT-02",
   NConf: "LT-03", ActingConf: "LT-05", ActingNConf: "LT-06",
@@ -169,7 +200,7 @@ const OUTCOME_LT = {
 
 function HrbpAckPanel({ rec, onHrbpAck }) {
   const [remarks, setRemarks] = useState("");
-  const label = OUTCOME_LABELS[rec.outcome] || rec.outcome;
+  const label = OUTCOME_LABEL[rec.outcome] || rec.outcome;
   const lt    = OUTCOME_LT[rec.outcome] || "—";
   return (
     <Card className="p-5">
@@ -217,6 +248,38 @@ function HrbpAckPanel({ rec, onHrbpAck }) {
   );
 }
 
+function EarlyConfApprovalPanel({ rec, onApproveEarlyConf }) {
+  const req = rec.earlyConfRequest;
+  return (
+    <Card className="p-5">
+      <div className="flex items-center gap-2 mb-1">
+        <span className="font-semibold text-slate-800">Approve early confirmation request</span>
+        <Mono className="text-[10px] text-slate-400">F-07 · LT-04</Mono>
+      </div>
+      <p className="text-sm text-slate-500 mb-4">
+        {rec.lm} has requested early confirmation. HRBP approval is required before LT-04 can be generated and sent for acknowledgement.
+      </p>
+      <div className="rounded-lg ring-1 ring-slate-200 bg-slate-50 p-4 mb-4 text-sm">
+        <div className="grid sm:grid-cols-2 gap-3 mb-3">
+          <div>
+            <div className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Requested effective date</div>
+            <div className="font-medium text-slate-800">{req?.effectiveDate || "—"}</div>
+          </div>
+          <div>
+            <div className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Requested by</div>
+            <div className="font-medium text-slate-800">{req?.requestedBy || rec.lm}</div>
+          </div>
+        </div>
+        <div className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1">Justification</div>
+        <p className="text-slate-600 leading-relaxed">{req?.justification}</p>
+      </div>
+      <Btn icon={ShieldCheck} onClick={() => onApproveEarlyConf(rec.id)}>
+        Approve &amp; proceed to LT-04
+      </Btn>
+    </Card>
+  );
+}
+
 function ReviewRow({ rv, kpis, role }) {
   const [open, setOpen] = useState(false);
   const canExpand = kpis.length > 0;
@@ -257,15 +320,16 @@ function ReviewRow({ rv, kpis, role }) {
   );
 }
 
-export default function CaseDetail({ rec, role, onBack, onSubmitReview, onEscalate, onTerminate, onSaveKpis, onGenerate, onSetOutcome, onHrbpAck, onReassignLM, allRecords = [], flash }) {
+export default function CaseDetail({ rec, role, onBack, onSubmitReview, onSaveReviewDraft, onEscalate, onTerminate, onSaveKpis, onRequestKpiUnlock, onGenerate, onSetOutcome, onHrbpAck, onReassignLM, onApproveKpiUnlock, onEarlyConf, onApproveEarlyConf, allRecords = [], flash }) {
   const [modal, setModal] = useState(null);
   const lmOptions = [...new Set(allRecords.map((r) => r.lm))].sort();
   const n = monthFromStatus(rec.status);
-  const lmReviewDue  = role === "LM"   && /-Review$/.test(rec.status);
+  const lmReviewDue  = role === "LM"   && !!n && /-Review$/.test(rec.status);
   const kpiDue       = role === "LM"   && (rec.status === "KPI-Review" || rec.status === "KPI-Review(Acting)");
   const lmOutcomeDue = role === "LM"   && LM_OUTCOME_STATUSES.includes(rec.status);
   const hrbpAckDue   = role === "HRBP" && HRBP_ACK_STATUSES.includes(rec.status);
   const letterDue    = role === "HRBP" && LETTER_DUE_STATUSES.includes(rec.status);
+  const earlyConfApprovalDue = role === "HRBP" && rec.earlyConfRequest?.status === "Pending";
   const canTerminate    = role === "LM" && isActiveProbation(rec.status);
   const earlyConfVisible = role === "LM" && rec.wf === "WF1" && /Mth[1-6]/.test(rec.status);
   const earlyConf        = earlyConfVisible && rec.gradeBand === "M09_M12" && /Mth[3-6]/.test(rec.status);
@@ -276,7 +340,7 @@ export default function CaseDetail({ rec, role, onBack, onSubmitReview, onEscala
         <ChevronRight size={15} className="rotate-180" /> Back
       </button>
 
-      <div className="flex items-start justify-between gap-4 flex-wrap mb-5">
+      <div className="flex items-start justify-between gap-4 flex-wrap mb-4">
         <div>
           <div className="flex items-center gap-3 flex-wrap">
             <h1 className="text-2xl font-semibold tracking-tight text-slate-900">{rec.name}</h1>
@@ -303,41 +367,47 @@ export default function CaseDetail({ rec, role, onBack, onSubmitReview, onEscala
         </div>
       </div>
 
-      <Card className="px-5 py-4 mb-5">
-        <div className="flex items-center justify-between mb-3">
+      <Card className="px-5 py-3 mb-4">
+        <div className="flex items-center justify-between mb-2">
           <div className="text-xs uppercase tracking-wider text-slate-400 font-medium">Probation lifecycle</div>
           <Mono className="text-[11px] text-slate-400">{rec.gradeBand === "M09_M12" ? "M09–M12 · 6 cycles" : "E08 & below · 3 cycles"}{rec.phase === "EXT" ? " · extension" : ""}</Mono>
         </div>
         <LifecycleRail rec={rec} />
       </Card>
 
-      <div className="grid lg:grid-cols-3 gap-5">
-        <div className="lg:col-span-2 space-y-5">
+      <div className="grid lg:grid-cols-3 gap-4">
+        <div className="lg:col-span-2 space-y-4">
           {kpiDue && (
             <ActionPanel code="S-02 / F-02" title="Set KPIs & targets" tone="kpi" desc="KPIs are mandatory before the first review cycle and are visible to the direct report.">
               <Btn icon={ClipboardList} onClick={() => setModal("kpi")}>{rec.kpis.length ? "Edit KPIs" : "Set KPIs"}</Btn>
             </ActionPanel>
           )}
           {lmReviewDue && (
-            <ActionPanel code="S-03 / F-03" title={`Submit Month ${n} review`} tone="review" desc="Score RPM 1–5 (≥3 meets expectations). On submit, the record moves to DR acceptance with daily reminders and the 7-day auto-accept timer.">
+            <ActionPanel code="S-03 / F-03" title={`Submit Month ${n} review`} tone="review" desc="Score RPM 1–5 (≥3 meets expectations). You may update this month's KPI targets before submitting the review.">
               <Btn icon={PenLine} onClick={() => setModal("review")}>Submit Month {n} review</Btn>
             </ActionPanel>
           )}
           {lmOutcomeDue && <LmOutcomePanel rec={rec} onSetOutcome={onSetOutcome} />}
+          {earlyConfApprovalDue && <EarlyConfApprovalPanel rec={rec} onApproveEarlyConf={onApproveEarlyConf} />}
           {hrbpAckDue   && <HrbpAckPanel  rec={rec} onHrbpAck={onHrbpAck} />}
           {letterDue    && <LetterGenPanel rec={rec} onGenerate={onGenerate} />}
-          {!kpiDue && !lmReviewDue && !lmOutcomeDue && !hrbpAckDue && !letterDue && (
+          {role === "HRBP" && rec.kpiUnlockRequested && onApproveKpiUnlock && (
+            <ActionPanel code="BR-10" title="KPI unlock request" tone="kpi" desc={`${rec.lm} has requested permission to edit the submitted KPIs for ${rec.name}.`}>
+              <Btn icon={ShieldCheck} onClick={() => onApproveKpiUnlock(rec.id)}>Approve unlock</Btn>
+            </ActionPanel>
+          )}
+          {!kpiDue && !lmReviewDue && !lmOutcomeDue && !earlyConfApprovalDue && !hrbpAckDue && !letterDue && !(role === "HRBP" && rec.kpiUnlockRequested) && (
             <Card className="px-5 py-6 text-center text-sm text-slate-500">
               {role === "LM" ? "No line-manager action is due on this record right now." : "No HRBP letter action is due on this record right now."}
             </Card>
           )}
 
-          <Card className="p-5">
+          <Card className="p-4">
             <div className="flex items-center justify-between mb-3">
               <div className="text-sm font-semibold text-slate-800 flex items-center gap-2"><ClipboardList size={16} /> Review history</div>
-              {role === "LM" && rec.kpis.length > 0 && (
+              {role === "LM" && rec.kpis.length > 0 && kpiDue && (
                 <Btn size="sm" variant="ghost" icon={Edit2} onClick={() => setModal("kpi")} className="text-xs -my-1 -mr-1">
-                  Adjust KPIs
+                  Edit KPIs
                 </Btn>
               )}
             </div>
@@ -346,88 +416,22 @@ export default function CaseDetail({ rec, role, onBack, onSubmitReview, onEscala
               : (
                 <div className="space-y-1">
                   {[...rec.reviews].sort((a, b) => a.cycle - b.cycle).map((rv) => (
-                    <ReviewRow key={rv.cycle} rv={rv} kpis={rec.kpis} role={role} onEditKpis={role === "LM" ? () => setModal("kpi") : null} />
+                    <ReviewRow key={rv.cycle} rv={rv} kpis={rv.kpisSnapshot || kpisForCycle(rec, rv.cycle)} role={role} />
                   ))}
                 </div>
               )}
           </Card>
 
-          {rec.completion && (
-            <Card className="p-5">
-              <div className="text-sm font-semibold text-slate-800 mb-1 flex items-center gap-2">
-                <FileSignature size={16} /> Signing completion record · A-09
-              </div>
-              <div className="text-[10px] text-emerald-600 bg-emerald-50 ring-1 ring-emerald-100 rounded px-2 py-0.5 inline-flex items-center gap-1 mb-4 font-semibold">
-                ✓ Immutable · append-only · tamper-evident
-              </div>
-
-              <div className="mb-3">
-                <div className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-2">Digital Fingerprint</div>
-                <dl className="grid sm:grid-cols-2 gap-x-6 gap-y-1.5 text-sm">
-                  {[
-                    ["User ID",    rec.completion.userId],
-                    ["Date / Time", rec.completion.ts],
-                    ["IP Address",  rec.completion.ip],
-                    ["User Agent",  rec.completion.ua],
-                    ["Integrity Hash", rec.completion.integrityHash],
-                  ].map(([k, v]) => (
-                    <div key={k} className="flex justify-between gap-3 border-b border-slate-50 py-1">
-                      <dt className="text-slate-400 shrink-0">{k}</dt>
-                      <dd className="text-slate-700 text-right break-all" style={{ fontFamily: "var(--mono)", fontSize: "11px" }}>{v}</dd>
-                    </div>
-                  ))}
-                </dl>
-              </div>
-
-              <div className="mb-3">
-                <div className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-2">Letter Version Control</div>
-                <dl className="grid sm:grid-cols-2 gap-x-6 gap-y-1.5 text-sm">
-                  {[
-                    ["Letter ID",      rec.letterId],
-                    ["Letter Type",    rec.letterType],
-                    ["Version",        rec.completion.letterVersion || "v1.0"],
-                    ["Generated At",   rec.completion.letterGeneratedAt ? new Date(rec.completion.letterGeneratedAt).toLocaleString("en-MY") : "—"],
-                    ["PDF Store",      "FAITH document library · read-only"],
-                  ].map(([k, v]) => (
-                    <div key={k} className="flex justify-between gap-3 border-b border-slate-50 py-1">
-                      <dt className="text-slate-400 shrink-0">{k}</dt>
-                      <dd className="text-slate-700 text-right" style={{ fontFamily: "var(--mono)", fontSize: "11px" }}>{v}</dd>
-                    </div>
-                  ))}
-                </dl>
-              </div>
-
-              <div>
-                <div className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-2">Signature</div>
-                <dl className="gap-y-1.5 text-sm">
-                  {[
-                    ["Method",    rec.completion.signatureMethod === "typed" ? "Typed name" : "Drawn"],
-                    ["Captured",  rec.completion.signature],
-                  ].map(([k, v]) => (
-                    <div key={k} className="flex justify-between gap-3 border-b border-slate-50 py-1">
-                      <dt className="text-slate-400">{k}</dt>
-                      <dd className="text-slate-700 text-right">{v}</dd>
-                    </div>
-                  ))}
-                </dl>
-                {rec.completion.signatureImage && (
-                  <div className="mt-3 rounded-lg ring-1 ring-slate-200 bg-white p-3">
-                    <div className="text-xs font-medium text-slate-400 mb-2">Captured drawn signature</div>
-                    <img src={rec.completion.signatureImage} alt="Drawn signature" className="h-20 max-w-full object-contain" />
-                  </div>
-                )}
-              </div>
-            </Card>
-          )}
+          {rec.completion && <CompletionRecord rec={rec} />}
         </div>
 
-        <div className="space-y-5">
-          <EmployeeProfile rec={rec} editable={false} />
+        <div className="space-y-3">
+          <EmployeeProfile rec={rec} editable={false} compact />
 
 
           {(canTerminate || earlyConfVisible) && (
-            <Card className="p-5 space-y-2">
-              <div className="text-xs uppercase tracking-wider text-slate-400 font-medium mb-1">Manager actions</div>
+            <Card className="p-3 space-y-1.5">
+              <div className="text-[10px] uppercase tracking-wider text-slate-400 font-medium mb-1">Manager actions</div>
 
               {earlyConfVisible && (
                 <div className="relative group">
@@ -437,7 +441,7 @@ export default function CaseDetail({ rec, role, onBack, onSubmitReview, onEscala
                     icon={Send}
                     disabled={!earlyConf}
                     className={`w-full ${!earlyConf ? "opacity-40 cursor-not-allowed" : ""}`}
-                    onClick={() => earlyConf && flash("Early confirmation request routed to HRBP (F-07 · LT-04)")}
+                    onClick={() => earlyConf && setModal("earlyconf")}
                   >
                     Request early confirmation (F-07)
                   </Btn>
@@ -465,10 +469,11 @@ export default function CaseDetail({ rec, role, onBack, onSubmitReview, onEscala
         </div>
       </div>
 
-      {modal === "kpi"       && <KpiModal      rec={rec} onClose={() => setModal(null)} onSave={(k) => { onSaveKpis(rec.id, k); setModal(null); }} />}
-      {modal === "review"    && <ReviewModal   rec={rec} month={n} onClose={() => setModal(null)} onSubmit={(rpm, t, extra) => { onSubmitReview(rec.id, rpm, t, extra); setModal(null); }} />}
+      {modal === "kpi"       && <KpiModal      rec={rec} onClose={() => setModal(null)} onSave={(k, cycle) => { onSaveKpis(rec.id, k, cycle); setModal(null); }} onRequestUnlock={onRequestKpiUnlock} />}
+      {modal === "review"    && <ReviewModal   rec={rec} month={n} onClose={() => setModal(null)} onSaveDraft={(draft) => { onSaveReviewDraft?.(rec.id, n, draft); setModal(null); }} onSubmit={(rpm, t, extra) => { onSubmitReview(rec.id, rpm, t, extra); setModal(null); }} />}
       {modal === "escalate"  && <EscalateModal onClose={() => setModal(null)} onSubmit={(i, d) => { onEscalate(rec.id, i, d); setModal(null); }} />}
-      {modal === "terminate" && <TerminateModal onClose={() => setModal(null)} onSubmit={(r, m) => { onTerminate(rec.id, r, m); setModal(null); }} />}
+      {modal === "terminate"  && <TerminateModal  onClose={() => setModal(null)} onSubmit={(r, m) => { onTerminate(rec.id, r, m); setModal(null); }} />}
+      {modal === "earlyconf"  && <EarlyConfModal  rec={rec} onClose={() => setModal(null)} onSubmit={(id, just, date) => { onEarlyConf?.(id, just, date); setModal(null); }} />}
       {modal === "reassign"  && <ReassignLMModal rec={rec} lmOptions={lmOptions} onClose={() => setModal(null)} onSave={(newLm, reason) => { onReassignLM(rec.id, newLm, reason); setModal(null); }} />}
     </div>
   );

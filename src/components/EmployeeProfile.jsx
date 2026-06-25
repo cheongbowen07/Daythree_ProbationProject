@@ -1,12 +1,14 @@
 import { useState } from "react";
 import {
-  User, Mail, Phone, Briefcase, Building2, Calendar, Hash, Shield,
+  User, Mail, Phone, Briefcase, Building2, Calendar, Shield,
   CheckCircle2, AlertTriangle, Clock, Edit2, Tag as TagIcon, Fingerprint, FileText,
   ChevronRight, ChevronDown,
 } from "lucide-react";
 import { Card, Mono, Tag, Btn, RpmDots } from "./ui";
 import { totalCycles, daysCap } from "../utils/lifecycle";
+import { kpisForCycle } from "../utils/kpi";
 import { statusLabel } from "../utils/status";
+import { OUTCOME_LABEL } from "../constants";
 import ProfileEditModal from "./modals/ProfileEditModal";
 
 const EMP_STATUS_STYLE = {
@@ -25,11 +27,6 @@ const EMP_STATUS_ICON = {
   "Not Confirmed":           AlertTriangle,
   "Probation (ended)":       AlertTriangle,
 };
-const OUTCOME_LABEL = {
-  Conf: "Confirmation", EarlyConf: "Early Confirmation", ActingConf: "Acting Confirmation",
-  NConf: "Non-Confirmation", ActingNConf: "Acting Non-Confirmation", Ext: "Extension",
-};
-
 function F({ label, value, mono, children }) {
   const content = children ?? value;
   if (!content && content !== 0) return null;
@@ -45,14 +42,14 @@ function F({ label, value, mono, children }) {
   );
 }
 
-function CardSection({ title, children, action, className = "" }) {
+function CardSection({ title, children, action, className = "", compact = false }) {
   return (
-    <Card className={`p-4 ${className}`}>
-      <div className="flex items-center justify-between mb-3">
+    <Card className={`${compact ? "p-3" : "p-4"} ${className}`}>
+      <div className={`flex items-center justify-between ${compact ? "mb-2" : "mb-3"}`}>
         <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">{title}</span>
         {action}
       </div>
-      <div className="space-y-3">
+      <div className={compact ? "space-y-2" : "space-y-3"}>
         {children}
       </div>
     </Card>
@@ -93,22 +90,23 @@ function ProfileReviewRow({ rv, kpis }) {
   );
 }
 
-export default function EmployeeProfile({ rec, editable, onSaveProfile }) {
+export default function EmployeeProfile({ rec, editable, onSaveProfile, compact = false }) {
   const [showEdit, setShowEdit] = useState(false);
 
   const isTerminated = rec.status === "Terminated";
 
   return (
-    <div className="space-y-4">
+    <div className={compact ? "space-y-3" : "space-y-4"}>
 
       {/* ── Main grid: left + right columns ── */}
-      <div className="grid md:grid-cols-2 gap-4">
+      <div className={`grid md:grid-cols-2 ${compact ? "gap-3" : "gap-4"}`}>
 
         {/* ── LEFT COLUMN ── */}
-        <div className="space-y-4">
+        <div className={compact ? "space-y-3" : "space-y-4"}>
 
           <CardSection
             title="Contact"
+            compact={compact}
             action={editable && (
               <Btn size="sm" variant="ghost" icon={Edit2} onClick={() => setShowEdit(true)} className="text-xs -my-1 -mr-1">Edit</Btn>
             )}
@@ -120,7 +118,7 @@ export default function EmployeeProfile({ rec, editable, onSaveProfile }) {
             <F label="Date joined" value={rec.joined} />
           </CardSection>
 
-          <CardSection title="Role & placement">
+          <CardSection title="Role & placement" compact={compact}>
             <F label="Position"    value={rec.position || "—"} />
             <F label="Grade"       value={rec.grade} />
             <F label="Department"  value={rec.dept || "—"} />
@@ -137,31 +135,30 @@ export default function EmployeeProfile({ rec, editable, onSaveProfile }) {
         </div>
 
         {/* ── RIGHT COLUMN ── */}
-        <div className="space-y-4">
+        <div className={compact ? "space-y-3" : "space-y-4"}>
 
-          <CardSection title="Probation progress">
+          <CardSection title="Probation progress" compact={compact}>
             <F label="Workflow" value={rec.wf === "WF2" ? "WF2 · Acting-role" : "WF1 · New-hire"} />
             <F label="Cycle"    value={`${rec.currentCycle || 0} of ${rec.phase === "EXT" ? 3 : totalCycles(rec)}${rec.phase === "EXT" ? " (ext)" : ""}`} />
             <F label="Day"      value={`Day ${rec.day} of ${daysCap(rec)}`} />
-            <F label="Status"   value={statusLabel(rec.status).replace(/^Probation –\s*/, "").replace(/^Extension –\s*/, "Ext – ")} mono />
-            {rec.outcome           && <F label="Outcome"     value={OUTCOME_LABEL[rec.outcome] || rec.outcome} />}
+            <F label="Status"   value={statusLabel(rec.status).replace(/^Probation –\s*/, "").replace(/^Extension –\s*/, "Ext – ").replace(/\s*–\s*(Confirmed|Non-Confirmed)$/, "")} mono />
             {rec.terminationReason && <F label="Termination" value={rec.terminationReason} />}
           </CardSection>
 
           {/* Review history */}
           {rec.reviews?.length > 0 && (
-            <Card className="p-4 overflow-hidden">
+            <Card className={`${compact ? "p-3" : "p-4"} overflow-hidden`}>
               <div className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-3">Review history</div>
               <div className="space-y-0">
                 {[...rec.reviews].sort((a, b) => a.cycle - b.cycle).map((rv) => (
-                  <ProfileReviewRow key={rv.cycle} rv={rv} kpis={rec.kpis || []} />
+                  <ProfileReviewRow key={rv.cycle} rv={rv} kpis={rv.kpisSnapshot || kpisForCycle(rec, rv.cycle)} />
                 ))}
               </div>
             </Card>
           )}
 
-          <Card className="p-4">
-            <div className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-4">Compliance record</div>
+          <Card className={compact ? "p-3" : "p-4"}>
+            <div className={`text-[10px] font-bold text-slate-400 uppercase tracking-widest ${compact ? "mb-3" : "mb-4"}`}>Compliance record</div>
             {rec.completion ? (
               <>
                 <div className="flex items-center gap-1.5 text-[11px] font-semibold text-emerald-700 bg-emerald-50 ring-1 ring-emerald-100 rounded-lg px-2.5 py-1.5 mb-4">
@@ -171,7 +168,6 @@ export default function EmployeeProfile({ rec, editable, onSaveProfile }) {
                   <F label="Letter ID" value={rec.completion.letterId} mono />
                   <F label="Signed by" value={rec.completion.empName} />
                   <F label="Signed at" value={rec.completion.ts} />
-                  <F label="Hash"      value={rec.completion.integrityHash} mono />
                 </div>
               </>
             ) : (
@@ -180,7 +176,7 @@ export default function EmployeeProfile({ rec, editable, onSaveProfile }) {
                   {isTerminated ? <AlertTriangle size={16} /> : <Clock size={16} />}
                 </div>
                 <p className="text-sm text-slate-400">
-                  {isTerminated ? "Terminated — no letter signed." : "Awaiting letter generation & signing."}
+                  {isTerminated ? "Terminated — no letter signed." : rec.letterId ? "Not Signed Yet." : "Awaiting letter generation."}
                 </p>
               </div>
             )}

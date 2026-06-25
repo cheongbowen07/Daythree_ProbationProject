@@ -6,6 +6,7 @@ import { TODAY, ROLES, NAV, OUTCOME_TO_SIGN, OUTCOME_TO_LETTER, HRBP_SELF, LM_SE
 import { seedRecords, seedAudit, ev } from "./data/seed";
 import { monthFromStatus, isActiveProbation } from "./utils/status";
 import { totalCycles } from "./utils/lifecycle";
+import { kpisForCycle } from "./utils/kpi";
 import { StyleVars, RoleCard } from "./components/ui";
 import LMDashboard    from "./components/screens/LMDashboard";
 import CaseDetail     from "./components/screens/CaseDetail";
@@ -175,22 +176,46 @@ export default function App() {
     const n = monthFromStatus(r.status);
     const ext  = r.phase === "EXT";
     const next = ext ? `Ext-Mth${n}-DR-Acpt` : `Mth${n}-DR-Acpt`;
+    const previousKpis = kpisForCycle(r, n);
+    const submittedKpis = extra.kpis?.length ? extra.kpis : previousKpis;
+    const kpisChanged = JSON.stringify(submittedKpis) !== JSON.stringify(previousKpis);
+    const audits = [
+      ev(r.lm, "review-submit", `${ext ? "Extension " : ""}Month ${n} review submitted (RPM ${rpm})`, r.empId, r.status, next),
+      ev("System", "schedule", "N-04 daily reminder to DR · A-02 7-day timer started", r.empId),
+    ];
+    if (kpisChanged) {
+      audits.splice(1, 0, ev(r.lm, "kpi", `Month ${n} KPI targets changed during review · N-01 to DR`, r.empId));
+      audits.splice(2, 0, ev("System", "notify", `N-01 to ${r.name} — Month ${n} KPI targets updated by LM`, r.empId));
+    }
     patch(id, (rec) => {
       rec.status  = next;
+      if (kpisChanged) rec.monthlyKpis = { ...(rec.monthlyKpis || {}), [n]: submittedKpis };
       rec.reviews = [...rec.reviews.filter((v) => v.cycle !== n), {
         cycle: n, rpm, rec: recText, actor: rec.lm,
+        kpisSnapshot: submittedKpis,
+        kpisChanged,
         kpiSummary: extra.kpiSummary || "",
         actingCtx:  extra.actingCtx  || "",
         reviewDate: extra.reviewDate  || "",
         recmd:      extra.recmd       || "",
       }];
+      rec.reviewDrafts = { ...(rec.reviewDrafts || {}) };
+      delete rec.reviewDrafts[n];
       rec.reminders = 0;
       return rec;
+    }, audits);
+    flash(`Month ${n} review submitted${kpisChanged ? " — KPI change notified to DR" : ""} — sent to ${r.name} for acceptance`);
+  }
+
+  function saveReviewDraft(id, cycle, draft) {
+    const r = records.find((x) => x.id === id);
+    patch(id, (rec) => {
+      rec.reviewDrafts = { ...(rec.reviewDrafts || {}), [cycle]: draft };
+      return rec;
     }, [
-      ev(r.lm, "review-submit", `${ext ? "Extension " : ""}Month ${n} review submitted (RPM ${rpm})`, r.empId, r.status, next),
-      ev("System", "schedule", "N-04 daily reminder to DR · A-02 7-day timer started", r.empId),
+      ev(r.lm, "review-draft", `Month ${cycle} review draft saved`, r.empId),
     ]);
-    flash(`Month ${n} review submitted — sent to ${r.name} for acceptance`);
+    flash(`Month ${cycle} review draft saved`);
   }
 
   function acceptReview(id, actor) {
@@ -256,7 +281,7 @@ export default function App() {
     }
   }
 
-  function generateLetter(id, outcome, label, lt, legal) {
+  function generateLetter(id, outcome, label, lt, legal, hrbpNotes = "") {
     const r            = records.find((x) => x.id === id);
     const letterStatus = OUTCOME_TO_LETTER[outcome];
     const signStatus   = OUTCOME_TO_SIGN[outcome];
@@ -270,6 +295,7 @@ export default function App() {
       rec.letterVersion = letterVersion;
       rec.letterGeneratedAt = generatedAt;
       rec.legalReviewed = !!legal;
+      rec.hrbpNotes     = hrbpNotes || "";
       rec.status        = signStatus;
       rec.slaBreached   = false;
       return rec;
@@ -313,9 +339,9 @@ export default function App() {
         letterType:      rec.letterType,
         letterVersion:   rec.letterVersion || "v1.0",
         letterGeneratedAt: rec.letterGeneratedAt || isoTs,
-        signature:       sig.method === "typed" ? sig.typed : "Drawn signature",
-        signatureMethod: sig.method,
-        signatureImage:  sig.image || "",
+        signature:       "Digital acknowledgement",
+        signatureMethod: "digital-footprint",
+        signatureImage:  "",
         ip:              simIp,
         ua:              navigator.userAgent.slice(0, 60) + "…",
         integrityHash:   hashRef,
@@ -337,6 +363,34 @@ export default function App() {
     flash("Escalation sent to HRBP (N-11)");
   }
 
+  function earlyConf(id, justification, effectiveDate) {
+    const r = records.find((x) => x.id === id);
+    patch(id, (rec) => {
+      rec.earlyConfRequest = { status: "Pending", justification, effectiveDate, requestedBy: r.lm, requestedAt: TODAY };
+      return rec;
+    }, [
+      ev(r.lm, "early-conf", `F-07 early confirmation request submitted · proposed effective ${effectiveDate}`, r.empId),
+      ev("System", "notify", "N-06 to HRBP — early confirmation approval required", r.empId),
+    ]);
+    flash("Early confirmation request sent to HRBP for approval");
+  }
+
+  function approveEarlyConf(id) {
+    const r = records.find((x) => x.id === id);
+    patch(id, (rec) => {
+      rec.outcome = "EarlyConf";
+      rec.status = "Pending-Letter";
+      rec.slaDays = 0;
+      rec.slaBreached = false;
+      rec.earlyConfRequest = { ...(rec.earlyConfRequest || {}), status: "Approved", approvedBy: HRBP_SELF, approvedAt: TODAY };
+      return rec;
+    }, [
+      ev(HRBP_SELF, "hrbp-ack", "Early confirmation request approved · LT-04 ready for generation", r.empId, r.status, "Pending-Letter"),
+      ev("System", "sla-start", "A-04 3-business-day letter SLA started · LT-04 pending HRBP generation", r.empId),
+    ]);
+    flash("Early confirmation approved — generate LT-04 from the letter panel");
+  }
+
   function terminate(id, reason, remarks) {
     const r = records.find((x) => x.id === id);
     patch(id, (rec) => {
@@ -352,12 +406,41 @@ export default function App() {
     flash("Probation terminated — all pending tasks cancelled");
   }
 
-  function saveKpis(id, kpis) {
+  function saveKpis(id, kpis, cycle = 1) {
     const r = records.find((x) => x.id === id);
-    patch(id, (rec) => { rec.kpis = kpis; rec.kpisLocked = true; return rec; }, [
-      ev(r.lm, "kpi", `KPIs submitted (${kpis.length}) · locked · armed for Day-31 trigger`, r.empId),
+    const activeCycle = r.currentCycle || 0;
+    const locksActiveCycle = cycle <= activeCycle || activeCycle === 0;
+    const isInitialSetup = (r.status === "KPI-Review" || r.status === "KPI-Review(Acting)") && cycle === 1;
+    const next = isInitialSetup ? "Mth1-Review" : r.status;
+    patch(id, (rec) => {
+      rec.monthlyKpis = { ...(rec.monthlyKpis || {}), [cycle]: kpis };
+      if (cycle === 1 || !rec.kpis?.length) rec.kpis = kpis;
+      if (locksActiveCycle) rec.kpisLocked = true;
+      if (isInitialSetup) {
+        rec.status = next;
+        rec.currentCycle = 1;
+      }
+      return rec;
+    }, [
+      ev(r.lm, "kpi", `Month ${cycle} KPIs submitted (${kpis.length})${locksActiveCycle ? " · locked" : " · future month plan"}${isInitialSetup ? " · moved to Month 1 review" : ""}`, r.empId, r.status, next),
     ]);
-    flash("KPIs submitted and locked — HRBP unlock required to edit (BR-10)");
+    flash(isInitialSetup ? "KPIs submitted — Month 1 review is now available" : locksActiveCycle ? `Month ${cycle} KPIs submitted and locked — HRBP unlock required for mid-month edits` : `Month ${cycle} KPIs saved`);
+  }
+
+  function requestKpiUnlock(id) {
+    const r = records.find((x) => x.id === id);
+    patch(id, (rec) => { rec.kpiUnlockRequested = true; return rec; }, [
+      ev(r.lm, "kpi", "KPI unlock requested (BR-10) — awaiting HRBP approval", r.empId),
+    ]);
+    flash("Unlock request sent to HRBP");
+  }
+
+  function approveKpiUnlock(id) {
+    const r = records.find((x) => x.id === id);
+    patch(id, (rec) => { rec.kpisLocked = false; rec.kpiUnlockRequested = false; return rec; }, [
+      ev("HRBP", "kpi", "KPI unlock approved (BR-10) — KPIs now editable", r.empId),
+    ]);
+    flash("KPI unlock approved — LM can now edit KPIs");
   }
 
   function addRecord(rec) {
@@ -402,6 +485,7 @@ export default function App() {
   }
 
   const active = records.find((r) => r.id === activeId) || null;
+  const lockMainScroll = role === "LM" && view === "dashboard" && !active;
 
   return (
     <div className="min-h-screen w-full text-[#4D4D4D]" style={{ background: "var(--paper)", fontFamily: "var(--sans)" }}>
@@ -449,9 +533,9 @@ export default function App() {
         </div>
       </header>
 
-      <div className="flex">
+      <div className="flex h-[calc(100vh-4rem)] overflow-hidden">
         {/* ── Sidebar ── */}
-        <aside className="hidden md:flex flex-col w-60 shrink-0 border-r border-slate-200 bg-white min-h-[calc(100vh-3.5rem)]">
+        <aside className="hidden md:flex flex-col w-60 shrink-0 border-r border-slate-200 bg-white h-full">
           <nav className="p-3 space-y-0.5">
             {NAV[role].map(([key, label, Icon, code]) => {
               const on = view === key;
@@ -473,7 +557,7 @@ export default function App() {
         </aside>
 
         {/* ── Main content ── */}
-        <main className="flex-1 min-w-0 p-4 sm:p-6 lg:p-8 max-w-[1180px]">
+        <main className={`flex-1 min-w-0 p-4 sm:p-6 lg:px-8 lg:py-5 w-full ${lockMainScroll ? "overflow-hidden" : "overflow-y-auto"}`}>
           {banner && (
             <div className="mb-5 flex items-start gap-3 rounded-xl bg-white ring-1 ring-amber-200 px-4 py-3 shadow-sm">
               <div className="grid place-items-center w-7 h-7 rounded-md bg-amber-50 text-amber-600 shrink-0"><Info size={15} /></div>
@@ -487,17 +571,17 @@ export default function App() {
           {view === "about" && <About />}
 
           {role === "LM"   && view === "dashboard" && !active && <LMDashboard records={records} onOpen={setActiveId} onDRListEscalate={drListEscalate} onAdd={addRecord} />}
-          {role === "LM"   && view === "dashboard" && active  && <CaseDetail rec={active} role={role} onBack={() => setActiveId(null)} onSubmitReview={submitReview} onEscalate={escalate} onTerminate={terminate} onSaveKpis={saveKpis} onSetOutcome={setLmOutcome} flash={flash} />}
+          {role === "LM"   && view === "dashboard" && active  && <CaseDetail rec={active} role={role} onBack={() => setActiveId(null)} onSubmitReview={submitReview} onSaveReviewDraft={saveReviewDraft} onEscalate={escalate} onTerminate={terminate} onSaveKpis={saveKpis} onRequestKpiUnlock={requestKpiUnlock} onSetOutcome={setLmOutcome} onEarlyConf={earlyConf} flash={flash} />}
           {role === "LM"   && view === "reports"   && <Reports records={records} role="LM" onReportExport={reportExport} />}
           {role === "LM"   && view === "settings"  && <LMSettings permissions={lmPermissions} />}
 
           {role === "DR"   && view === "myprob"    && <DRHome records={records} asDr={asDr} setAsDr={setAsDr} onAccept={acceptReview} onSign={signLetter} onUpdateProfile={updateProfile} />}
 
 
-          {role === "HRBP" && view === "pipeline"  && !active && <HRBPPipeline records={records} onOpen={setActiveId} onAdd={addRecord} />}
-          {role === "HRBP" && view === "pipeline"  && active  && <CaseDetail rec={active} role={role} onBack={() => setActiveId(null)} onGenerate={generateLetter} onHrbpAck={hrbpAcknowledge} onReassignLM={reassignLM} allRecords={records} flash={flash} />}
-          {role === "HRBP" && view === "sla"       && <SLATracker records={records} />}
-          {role === "HRBP" && view === "audit"     && <AuditTrail audit={audit} records={records} />}
+          {role === "HRBP" && view === "pipeline"  && !active && <HRBPPipeline records={records} onOpen={setActiveId} onAdd={addRecord} onReports={() => setView("reports")} />}
+          {role === "HRBP" && view === "pipeline"  && active  && <CaseDetail rec={active} role={role} onBack={() => setActiveId(null)} onGenerate={generateLetter} onHrbpAck={hrbpAcknowledge} onReassignLM={reassignLM} onApproveKpiUnlock={approveKpiUnlock} onApproveEarlyConf={approveEarlyConf} allRecords={records} flash={flash} />}
+          {role === "HRBP" && view === "sla"       && <SLATracker records={records} onOpen={(id) => { setActiveId(id); setView("pipeline"); }} />}
+          {role === "HRBP" && view === "audit"     && <AuditTrail audit={audit} records={records} onExportLog={(detail) => log(ev("HRBP", "export", `F-08: ${detail}`, ""))} />}
           {role === "HRBP" && view === "reports"   && <Reports records={records} role="HRBP" onReportExport={reportExport} />}
           {role === "HRBP" && view === "notifications" && <NotificationCenter />}
           {role === "HRBP" && view === "console"   && <SystemConsole records={records} lmPermissions={lmPermissions} setLmPermissions={setLmPermissions} automations={automations} />}
@@ -508,7 +592,7 @@ export default function App() {
           {role === "LEAD" && view === "reports"   && <Reports records={records} role="LEAD" onReportExport={reportExport} />}
 
           {role === "ADMIN" && view === "console"   && <SystemConsole records={records} lmPermissions={lmPermissions} setLmPermissions={setLmPermissions} automations={automations} onPatchAutomation={patchAutomation} />}
-          {role === "ADMIN" && view === "audit"     && <AuditTrail audit={audit} records={records} />}
+          {role === "ADMIN" && view === "audit"     && <AuditTrail audit={audit} records={records} onExportLog={(detail) => log(ev("HRBP", "export", `F-08: ${detail}`, ""))} />}
           {role === "ADMIN" && view === "notifications" && <NotificationCenter />}
         </main>
 

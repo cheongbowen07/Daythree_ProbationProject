@@ -10,12 +10,12 @@ const ISSUE_TYPES = [
   { value: "other",         label: "Other",                       desc: "Describe the issue below." },
 ];
 
-export default function DRListEscalateModal({ onClose, onSubmit }) {
+export default function DRListEscalateModal({ onClose, onSubmit, lmName = "" }) {
   const [issueType, setIssueType] = useState("");
   const [empRef, setEmpRef]       = useState("");
   const [desc, setDesc]           = useState("");
 
-  const valid = issueType && desc.trim().length > 5;
+  const valid = issueType && desc.trim().length >= 20;
 
   return (
     <Modal title="Report DR list inaccuracy" code="F-06b · FR-13" onClose={onClose}>
@@ -24,6 +24,12 @@ export default function DRListEscalateModal({ onClose, onSubmit }) {
           <AlertTriangle size={15} className="shrink-0 mt-0.5" />
           <p>This report will be escalated to HRBP immediately via N-11. HRBP will investigate and correct the record in FAITH.</p>
         </div>
+        {lmName && (
+          <div className="flex justify-between text-sm border-b border-slate-100 pb-2">
+            <span className="text-slate-400">Reported by</span>
+            <span className="font-medium text-slate-700">{lmName}</span>
+          </div>
+        )}
 
         <Field label="Issue type">
           <div className="space-y-2 mt-1">
@@ -53,9 +59,10 @@ export default function DRListEscalateModal({ onClose, onSubmit }) {
             value={desc}
             onChange={(e) => setDesc(e.target.value)}
             rows={3}
-            placeholder="Describe the inaccuracy in detail…"
+            placeholder="Describe the inaccuracy in detail… (min 20 characters)"
             className="w-full mt-1 bg-slate-50 ring-1 ring-slate-200 rounded-lg px-3 py-2 text-sm outline-none focus:ring-indigo-400 resize-none"
           />
+          <div className={`text-xs mt-1 text-right ${desc.trim().length >= 20 ? "text-emerald-600" : "text-slate-400"}`}>{desc.trim().length}/20 min</div>
         </Field>
 
         <div className="flex gap-2 pt-1">

@@ -1,8 +1,9 @@
 import { X } from "lucide-react";
+import { createPortal } from "react-dom";
 import { Mono } from "../ui";
 
 export function Modal({ title, code, onClose, children, wide }) {
-  return (
+  const modal = (
     <div
       className="fixed inset-0 z-50 grid place-items-center p-4"
       style={{ background: "rgba(15,23,42,.45)" }}
@@ -23,6 +24,8 @@ export function Modal({ title, code, onClose, children, wide }) {
       </div>
     </div>
   );
+
+  return createPortal(modal, document.body);
 }
 
 export function Field({ label, children }) {

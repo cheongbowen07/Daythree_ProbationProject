@@ -1,12 +1,19 @@
 import { useState } from "react";
-import { Plus, X, Lock } from "lucide-react";
+import { Plus, X, Lock, KeyRound } from "lucide-react";
 import { inputCls } from "../../constants";
+import { editableKpisForCycle } from "../../utils/kpi";
 import { Btn, Mono, Tag } from "../ui";
 import { Modal } from "./Modal";
 
-export default function KpiModal({ rec, onClose, onSave }) {
-  const locked = !!rec.kpisLocked;
-  const [kpis, setKpis] = useState(rec.kpis.length ? rec.kpis : [{ name: "", desc: "", target: "", weight: 100 }]);
+export default function KpiModal({ rec, onClose, onSave, onRequestUnlock }) {
+  const activeCycle = rec.currentCycle || 0;
+  const cycle = activeCycle > 0 ? activeCycle : 1;
+  const isMonthlyReviewWindow = /^Mth\d-Review$/.test(rec.status) || /^Ext-Mth\d-Review$/.test(rec.status);
+  const canEditDuringReview = isMonthlyReviewWindow && cycle > 1;
+  const hasMonthOverride = !!(rec.monthlyKpis?.[cycle] || rec.monthlyKpis?.[String(cycle)]);
+  const hasSubmittedKpis = hasMonthOverride || (cycle === 1 && rec.kpis?.length > 0);
+  const locked = hasSubmittedKpis && rec.kpisLocked !== false && !canEditDuringReview;
+  const [kpis, setKpis] = useState(() => editableKpisForCycle(rec, cycle));
   const total = kpis.reduce((a, k) => a + (Number(k.weight) || 0), 0);
   const valid = !locked && kpis.length >= 1 && kpis.every((k) => k.name.trim()) && total === 100;
 
@@ -36,11 +43,29 @@ export default function KpiModal({ rec, onClose, onSave }) {
         </div>
       </div>
 
+      <div className="flex items-center justify-between gap-3 mb-4 rounded-lg bg-cyan-50 ring-1 ring-cyan-100 px-3 py-2.5 flex-wrap">
+        <div>
+          <div className="text-[10px] font-semibold text-cyan-700 uppercase tracking-wider">Editing cycle</div>
+          <div className="text-sm font-medium text-slate-800">Month {cycle} KPIs & targets</div>
+        </div>
+        <div className="text-xs text-cyan-700">
+          {hasMonthOverride ? "Custom KPIs already saved for this month" : "Starts from the existing KPI set"}
+        </div>
+      </div>
+
       {/* Lock banner */}
       {locked && (
-        <div className="flex items-center gap-2 rounded-lg bg-amber-50 ring-1 ring-amber-200 px-3 py-2.5 mb-4 text-amber-800 text-sm">
+        <div className="flex items-center gap-3 rounded-lg bg-amber-50 ring-1 ring-amber-200 px-3 py-2.5 mb-4 text-amber-800 text-sm">
           <Lock size={14} className="shrink-0" />
-          KPIs are locked after submission. HRBP unlock approval required to edit (BR-10).
+          <span className="flex-1">Month {cycle} KPIs are locked. HRBP unlock approval required to edit mid-month (BR-10).</span>
+          {onRequestUnlock && !rec.kpiUnlockRequested && (
+            <Btn size="sm" variant="ghost" icon={KeyRound} onClick={() => { onRequestUnlock(rec.id); onClose(); }} className="shrink-0 text-amber-700 border-amber-300 hover:bg-amber-100">
+              Request unlock
+            </Btn>
+          )}
+          {rec.kpiUnlockRequested && (
+            <span className="shrink-0 text-xs font-medium text-amber-600">Unlock pending HRBP approval</span>
+          )}
         </div>
       )}
 
@@ -73,7 +98,7 @@ export default function KpiModal({ rec, onClose, onSave }) {
 
       <div className="flex justify-end gap-2 mt-4 pt-3 border-t border-slate-100">
         <Btn variant="ghost" onClick={onClose}>{locked ? "Close" : "Save draft"}</Btn>
-        {!locked && <Btn disabled={!valid} onClick={() => onSave(kpis)}>Submit KPIs</Btn>}
+        {!locked && <Btn disabled={!valid} onClick={() => onSave(kpis, cycle)}>Submit Month {cycle} KPIs</Btn>}
       </div>
     </Modal>
   );

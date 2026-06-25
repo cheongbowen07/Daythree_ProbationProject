@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { Search, Download, ChevronDown, ChevronRight, ArrowRight, ShieldCheck, SlidersHorizontal, X } from "lucide-react";
 import { EVENT_META } from "../../constants";
-import { exportPDF, exportXLSX } from "../../utils/export";
+import { exportPDF, exportXLSX, exportCSV } from "../../utils/export";
 import { Card, Btn, PageHead, Mono } from "../ui";
 
 function FingerprintRow({ label, value }) {
@@ -19,7 +19,7 @@ const WF_TYPE_MAP = {
   "WF2": "Acting-role (WF2)",
 };
 
-export default function AuditTrail({ audit, records = [] }) {
+export default function AuditTrail({ audit, records = [], onExportLog }) {
   const [q, setQ]               = useState("");
   const [expanded, setExpanded] = useState({});
   const [showFilters, setShowFilters] = useState(false);
@@ -49,6 +49,7 @@ export default function AuditTrail({ audit, records = [] }) {
   });
 
   const hasFilter = filterType || filterActor || filterWf || filterDateFrom || filterDateTo;
+  const dateRangeInvalid = filterDateFrom && filterDateTo && filterDateTo < filterDateFrom;
   function clearFilters() { setFilterType(""); setFilterActor(""); setFilterWf(""); setFilterDateFrom(""); setFilterDateTo(""); }
 
   function toggle(id) { setExpanded((p) => ({ ...p, [id]: !p[id] })); }
@@ -56,7 +57,12 @@ export default function AuditTrail({ audit, records = [] }) {
   function doExport(format) {
     const head = ["Timestamp", "Emp ID", "Actor", "Event", "Detail", "Prev Status", "New Status"];
     const rows = f.map((e) => [e.ts, e.empId, e.actor, e.type, e.detail, e.prev || "—", e.next || "—"]);
+    onExportLog?.(`F-08 audit export · ${format.toUpperCase()} · ${f.length} entries`);
 
+    if (format === "csv") {
+      exportCSV({ filename: "faith-audit-trail.csv", head, rows });
+      return;
+    }
     if (format === "pdf") {
       exportPDF({
         filename: "faith-audit-trail.pdf",
@@ -95,6 +101,7 @@ export default function AuditTrail({ audit, records = [] }) {
         sub="Append-only, read-only (A-08). Every status change, submission, signing event, and reminder is traceable. Retention 7 years (pending Legal — OI-05)."
         right={
           <div className="flex gap-2">
+            <Btn icon={Download} variant="ghost" onClick={() => doExport("csv")}>CSV</Btn>
             <Btn icon={Download} variant="ghost" onClick={() => doExport("xlsx")}>Excel</Btn>
             <Btn icon={Download} variant="ghost" onClick={() => doExport("pdf")}>PDF</Btn>
           </div>
@@ -129,7 +136,8 @@ export default function AuditTrail({ audit, records = [] }) {
         </div>
 
         {showFilters && (
-          <div className="grid grid-cols-2 sm:grid-cols-5 gap-3 px-4 py-3 border-b border-slate-100 bg-slate-50/60">
+          <div className="border-b border-slate-100 bg-slate-50/60">
+          <div className="grid grid-cols-2 sm:grid-cols-5 gap-3 px-4 py-3">
             <div>
               <label className="text-[10px] font-semibold text-slate-400 uppercase tracking-wider mb-1 block">Event type</label>
               <select value={filterType} onChange={(e) => setFilterType(e.target.value)} className="w-full text-xs bg-white ring-1 ring-slate-200 rounded-lg px-2 py-1.5 outline-none">
@@ -158,8 +166,12 @@ export default function AuditTrail({ audit, records = [] }) {
             </div>
             <div>
               <label className="text-[10px] font-semibold text-slate-400 uppercase tracking-wider mb-1 block">Date to</label>
-              <input type="date" value={filterDateTo} onChange={(e) => setFilterDateTo(e.target.value)} className="w-full text-xs bg-white ring-1 ring-slate-200 rounded-lg px-2 py-1.5 outline-none" />
+              <input type="date" value={filterDateTo} onChange={(e) => setFilterDateTo(e.target.value)} className={`w-full text-xs bg-white ring-1 rounded-lg px-2 py-1.5 outline-none ${dateRangeInvalid ? "ring-rose-400" : "ring-slate-200"}`} />
             </div>
+          </div>
+          {dateRangeInvalid && (
+            <div className="px-4 pb-2 text-xs text-rose-600">"Date to" cannot precede "Date from".</div>
+          )}
           </div>
         )}
 

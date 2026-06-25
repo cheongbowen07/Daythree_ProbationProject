@@ -1,12 +1,13 @@
 import { useState } from "react";
-import { Users, FileText, AlertTriangle, PenLine, ChevronRight, Plus } from "lucide-react";
+import { Users, FileText, AlertTriangle, PenLine, ChevronRight, Plus, BarChart2, Filter } from "lucide-react";
 import { daysCap } from "../../utils/lifecycle";
-import { isActiveProbation } from "../../utils/status";
+import { isActiveProbation, statusLabel } from "../../utils/status";
 import { Card, PageHead, StatusBadge, Tag, Mono, Stat, Btn } from "../ui";
 import InitiateModal from "../modals/InitiateModal";
 
-export default function HRBPPipeline({ records, onOpen, onAdd }) {
+export default function HRBPPipeline({ records, onOpen, onAdd, onReports }) {
   const [addOpen, setAddOpen] = useState(false);
+  const [statusFilter, setStatusFilter] = useState("all");
   const TABS = [
     ["all",    "All cases"],
     ["action", "Needs my action"],
@@ -16,13 +17,16 @@ export default function HRBPPipeline({ records, onOpen, onAdd }) {
   ];
   const [tab, setTab] = useState("all");
 
-  const f = records.filter((r) => {
-    if (tab === "action") return ["Pending-Letter", "Pending-Letter(Acting)", "Ext-Pending-Letter", "HRBP-Ack", "HRBP-Ack(Acting)", "Ext-HRBP-Ack"].includes(r.status);
+  const tabRecords = records.filter((r) => {
+    if (tab === "action") return r.earlyConfRequest?.status === "Pending" || ["Pending-Letter", "Pending-Letter(Acting)", "Ext-Pending-Letter", "HRBP-Ack", "HRBP-Ack(Acting)", "Ext-HRBP-Ack"].includes(r.status);
     if (tab === "sla")    return r.slaBreached || ((r.slaDays || 0) >= 4 && r.status.includes("Pending-Letter"));
     if (tab === "ext")    return r.phase === "EXT";
     if (tab === "sign")   return /Sign-Off$/.test(r.status);
     return true;
   });
+  const statusOptions = [...new Set(tabRecords.map((r) => r.status))]
+    .sort((a, b) => statusLabel(a).localeCompare(statusLabel(b)));
+  const f = tabRecords.filter((r) => statusFilter === "all" || r.status === statusFilter);
 
   return (
     <div className="fadeUp">
@@ -30,7 +34,7 @@ export default function HRBPPipeline({ records, onOpen, onAdd }) {
         code="S-06 · HRBP Pipeline"
         title="Probation Pipeline"
         sub="Organisation-wide visibility across all line managers and both workflows. HRBP initiates probation and is the sole owner of letter generation."
-        right={<Btn icon={Plus} onClick={() => setAddOpen(true)}>Initiate probation</Btn>}
+        right={<div className="flex gap-2"><Btn variant="ghost" icon={BarChart2} onClick={onReports}>Reports · S-12</Btn><Btn icon={Plus} onClick={() => setAddOpen(true)}>Initiate probation</Btn></div>}
       />
 
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-5">
@@ -42,15 +46,31 @@ export default function HRBPPipeline({ records, onOpen, onAdd }) {
 
       <div className="flex gap-1.5 mb-4 flex-wrap">
         {TABS.map(([k, l]) => (
-          <button key={k} onClick={() => setTab(k)} className={`text-sm px-3 py-1.5 rounded-lg font-medium transition ${tab === k ? "text-white" : "text-slate-600 bg-white ring-1 ring-slate-200 hover:bg-slate-50"}`} style={tab === k ? { background: "var(--brand)" } : {}}>
+          <button key={k} onClick={() => { setTab(k); setStatusFilter("all"); }} className={`text-sm px-3 py-1.5 rounded-lg font-medium transition ${tab === k ? "text-white" : "text-slate-600 bg-white ring-1 ring-slate-200 hover:bg-slate-50"}`} style={tab === k ? { background: "var(--brand)" } : {}}>
             {l}
           </button>
         ))}
       </div>
 
-      {addOpen && <InitiateModal onClose={() => setAddOpen(false)} onAdd={(r) => { onAdd(r); setAddOpen(false); }} />}
+      {addOpen && <InitiateModal existingRecords={records} onClose={() => setAddOpen(false)} onAdd={(r) => { onAdd(r); setAddOpen(false); }} />}
 
       <Card>
+        <div className="flex items-center justify-between gap-3 px-4 py-3 border-b border-slate-100 flex-wrap">
+          <div className="flex items-center gap-2 text-slate-500">
+            <Filter size={16} className="text-slate-400" />
+            <select
+              value={statusFilter}
+              onChange={(e) => setStatusFilter(e.target.value)}
+              className="min-w-[220px] bg-white text-sm text-slate-700 ring-1 ring-slate-200 rounded-lg px-3 py-1.5 outline-none focus:ring-cyan-400"
+            >
+              <option value="all">All statuses</option>
+              {statusOptions.map((status) => (
+                <option key={status} value={status}>{statusLabel(status)}</option>
+              ))}
+            </select>
+          </div>
+          <Mono className="text-xs text-slate-400">{f.length}/{tabRecords.length} shown</Mono>
+        </div>
         <div className="overflow-x-auto">
           <table className="w-full text-sm">
             <thead>
@@ -68,8 +88,9 @@ export default function HRBPPipeline({ records, onOpen, onAdd }) {
               {f.map((r) => {
                 const ackDue    = ["HRBP-Ack", "HRBP-Ack(Acting)", "Ext-HRBP-Ack"].includes(r.status);
                 const letterDue = ["Pending-Letter", "Pending-Letter(Acting)", "Ext-Pending-Letter"].includes(r.status);
-                const actionLabel = ackDue ? "Acknowledge" : letterDue ? "Generate letter" : "View";
-                const actionColor = (ackDue || letterDue) ? "text-cyan-700" : "text-slate-400";
+                const earlyConfDue = r.earlyConfRequest?.status === "Pending";
+                const actionLabel = earlyConfDue ? "Approve early conf" : ackDue ? "Acknowledge" : letterDue ? "Generate letter" : "View";
+                const actionColor = (earlyConfDue || ackDue || letterDue) ? "text-cyan-700" : "text-slate-400";
                 return (
                   <tr key={r.id} className="border-b border-slate-50 hover:bg-slate-50/70 cursor-pointer" onClick={() => onOpen(r.id)}>
                     <td className="px-4 py-3">
@@ -80,6 +101,7 @@ export default function HRBPPipeline({ records, onOpen, onAdd }) {
                     <td className="px-4 py-3"><Tag className="bg-slate-100 text-slate-600">{r.grade}</Tag></td>
                     <td className="px-4 py-3">
                       <StatusBadge status={r.status} sm />
+                      {earlyConfDue && <div className="text-[10px] text-amber-600 mt-0.5">Early confirmation request</div>}
                       {ackDue && r.outcome && <div className="text-[10px] text-amber-600 mt-0.5">LM: {r.outcome}</div>}
                     </td>
                     <td className="px-4 py-3">

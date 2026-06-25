@@ -102,6 +102,11 @@ export const EVENT_META = {
   kpi:             ["KPI",        "text-slate-600 bg-slate-100"],
 };
 
+export const OUTCOME_LABEL = {
+  Conf: "Confirmation", EarlyConf: "Early Confirmation", Ext: "Extension",
+  NConf: "Non-Confirmation", ActingConf: "Acting Confirmation", ActingNConf: "Acting Non-Confirmation",
+};
+
 export const PIE_COLORS = ["#3CC49F", "#FFB84D", "#C8102E", "#5D3FD3", "#409CFF", "#FF9E3D"];
 
 export const inputCls = "w-full text-sm rounded-lg ring-1 ring-slate-200 px-3 py-2 outline-none focus:ring-cyan-400";
