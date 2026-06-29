@@ -83,6 +83,34 @@ export function SortTh({ label, sortKey, sort, onSort, align = "left", className
   );
 }
 
+// Page navigation for long record lists. Renders nothing for a single page.
+export function Pager({ page, pageCount, total, pageSize, onPage }) {
+  if (pageCount <= 1) return null;
+  const start = page * pageSize + 1;
+  const end   = Math.min(total, (page + 1) * pageSize);
+  const btn   = "min-w-[30px] h-[30px] px-2 grid place-items-center rounded-lg text-xs font-medium ring-1 transition disabled:opacity-40 disabled:cursor-not-allowed";
+  return (
+    <div className="flex items-center justify-between gap-3 px-4 py-3 border-t border-slate-100 flex-wrap">
+      <Mono className="text-xs text-slate-400">{start}–{end} of {total}</Mono>
+      <div className="flex items-center gap-1">
+        <button type="button" disabled={page <= 0} onClick={() => onPage(page - 1)} className={`${btn} bg-white ring-slate-200 text-slate-600 hover:bg-slate-50`}>Prev</button>
+        {Array.from({ length: pageCount }, (_, i) => (
+          <button
+            key={i}
+            type="button"
+            onClick={() => onPage(i)}
+            className={`${btn} ${i === page ? "text-white ring-transparent" : "bg-white ring-slate-200 text-slate-600 hover:bg-slate-50"}`}
+            style={i === page ? { background: "var(--brand)" } : {}}
+          >
+            {i + 1}
+          </button>
+        ))}
+        <button type="button" disabled={page >= pageCount - 1} onClick={() => onPage(page + 1)} className={`${btn} bg-white ring-slate-200 text-slate-600 hover:bg-slate-50`}>Next</button>
+      </div>
+    </div>
+  );
+}
+
 export function Btn({ children, onClick, variant = "primary", size = "md", disabled, icon: Icon, className = "" }) {
   const sizes = { md: "px-3.5 py-2 text-sm", sm: "px-2.5 py-1.5 text-xs", lg: "px-4 py-2.5 text-sm" };
   const styles = {

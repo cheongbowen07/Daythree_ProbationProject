@@ -4,11 +4,11 @@ import { Card, PageHead, Mono } from "../ui";
 const COVERAGE = [
   ["S-01 · MyTeamProb", "Line Manager dashboard — own team only (A-08)"],
   ["S-02 / F-02",       "KPI & target setting before cycle 1"],
-  ["S-03 / F-03",       "Monthly review submit (RPM 1–5)"],
+  ["S-03 / F-03",       "Monthly review submit (RPM 1–10, auto-derived)"],
   ["S-04 / S-05 / F-04","DR self-service + review acceptance"],
   ["S-06",              "HRBP organisation-wide pipeline"],
   ["S-07 / F-05",       "Letter generation (LT-01…06) + legal gate"],
-  ["S-08 / A-04",       "5-business-day HRBP SLA"],
+  ["S-08 / A-04",       "3-business-day HRBP letter SLA"],
   ["S-09 / A-08",       "Append-only audit trail + export"],
   ["S-10 / F-09 / A-10","Internal e-signature (replaces DocuSign)"],
   ["S-12 / A-11",       "Reports R-01…R-05, role-scoped"],
@@ -54,7 +54,7 @@ export default function About() {
           <ScopeItem label="14 Notifications" val="Day 31/61/91, 7-Day Auto, SLA Warning, E-Sign, WF1/2 Milestones, Legal gate, SAP Sync" />
           <ScopeItem label="11 Automations" val="Scheduler, Auto-Accept, SLA Check, Letter Gen, Audit, Emp-Update, Rewards Notify, HOD Alert" />
           <ScopeItem label="5 Roles" val="LM, DR, HRBP, LEAD (Leadership), ADMIN (System Administrator)" />
-          <ScopeItem label="Tech Stack" val="React 18 / Vite / Tailwind CSS / Lucide / Framer Motion" />
+          <ScopeItem label="Tech Stack" val="React / Vite / Tailwind CSS / Recharts / Lucide / jsPDF · xlsx" />
         </div>
       </Card>
 
@@ -65,8 +65,9 @@ export default function About() {
           <li>Role-based access (switch top-right): LM sees own team, DR sees own record, HRBP is org-wide, Leadership sees aggregates with no names.</li>
           <li>Grade-differentiated cycles — E08 &amp; below run 3 months/3 cycles; M09–M12 run 6 months/6 cycles.</li>
           <li>Both workflows — WF1 new-hire and WF2 acting-role (with acting grade, allowance, and LT-05/06 outcomes).</li>
-          <li>The full lifecycle: KPI → monthly reviews → DR acceptance → outcome letter → internal e-signature → automatic employment-status update.</li>
-          <li>A single grade-differentiated extension loop — 1 month for M09–M12, 3 months for E08 &amp; below — the promotion gate (DEP-09), the 5-day letter SLA, and the append-only audit trail.</li>
+          <li>The full lifecycle: KPI → monthly reviews → DR acceptance → outcome letter → internal e-signature → automatic employment-status update, shown on a colour-coded timeline (grey = not reviewed, amber = awaiting acceptance, green = accepted) with scheduled dates.</li>
+          <li>RPM (1–10, to 1 dp) is auto-derived from weighted KPI achievement — never picked by the LM. Mid-month KPI target changes are proposed by the LM and submitted to HRBP for approval (BR-10).</li>
+          <li>A single grade-differentiated extension loop — 1 month for M09–M12, 3 months for E08 &amp; below — the promotion gate (DEP-09), the 3-day letter SLA, and the append-only audit trail.</li>
           <li>The System Console (HRBP role) exposes the automations (A-01/A-02/A-04) as manual buttons so the invisible layer is visible.</li>
         </ul>
       </Card>

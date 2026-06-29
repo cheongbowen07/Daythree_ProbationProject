@@ -417,20 +417,43 @@ export default function App() {
     flash(isInitialSetup ? "KPIs submitted — Month 1 review is now available" : locksActiveCycle ? `Month ${cycle} KPIs submitted and locked — HRBP unlock required for mid-month edits` : `Month ${cycle} KPIs saved`);
   }
 
-  function requestKpiUnlock(id) {
+  function requestKpiUnlock(id, kpis, cycle) {
     const r = records.find((x) => x.id === id);
-    patch(id, (rec) => { rec.kpiUnlockRequested = true; return rec; }, [
-      ev(r.lm, "kpi", "KPI unlock requested (BR-10) — awaiting HRBP approval", r.empId),
+    const proposed = kpis?.length ? { cycle: cycle ?? r.currentCycle ?? 1, kpis } : null;
+    patch(id, (rec) => {
+      rec.kpiUnlockRequested = true;
+      rec.proposedKpis = proposed;
+      return rec;
+    }, [
+      ev(r.lm, "kpi", proposed
+        ? `Revised Month ${proposed.cycle} KPI targets submitted to HRBP for approval (BR-10)`
+        : "KPI unlock requested (BR-10) — awaiting HRBP approval", r.empId),
     ]);
-    flash("Unlock request sent to HRBP");
+    flash(proposed ? "Proposed KPI change sent to HRBP for approval" : "Unlock request sent to HRBP");
   }
 
   function approveKpiUnlock(id) {
     const r = records.find((x) => x.id === id);
-    patch(id, (rec) => { rec.kpisLocked = false; rec.kpiUnlockRequested = false; return rec; }, [
-      ev("HRBP", "kpi", "KPI unlock approved (BR-10) — KPIs now editable", r.empId),
+    const proposed = r.proposedKpis;
+    patch(id, (rec) => {
+      if (proposed?.kpis?.length) {
+        // Apply the LM's proposed targets for the cycle and keep it locked.
+        rec.monthlyKpis = { ...(rec.monthlyKpis || {}), [proposed.cycle]: proposed.kpis };
+        if (proposed.cycle === 1) rec.kpis = proposed.kpis;
+        rec.kpisLocked = true;
+      } else {
+        // Legacy unlock-only request: just reopen the cycle for editing.
+        rec.kpisLocked = false;
+      }
+      rec.kpiUnlockRequested = false;
+      rec.proposedKpis = null;
+      return rec;
+    }, [
+      ev(HRBP_SELF, "kpi", proposed?.kpis?.length
+        ? `KPI change approved (BR-10) — Month ${proposed.cycle} targets updated · N-01 to DR`
+        : "KPI unlock approved (BR-10) — KPIs now editable", r.empId),
     ]);
-    flash("KPI unlock approved — LM can now edit KPIs");
+    flash(proposed?.kpis?.length ? "KPI change approved and applied" : "KPI unlock approved — LM can now edit KPIs");
   }
 
   function addRecord(rec) {
@@ -520,6 +543,9 @@ export default function App() {
         {/* ── Sidebar ── */}
         <aside className="hidden md:flex flex-col w-60 shrink-0 border-r border-slate-200 bg-white h-full">
           <nav className="p-3 space-y-0.5">
+            <div className="px-3 pt-1 pb-2 text-[10px] font-bold uppercase tracking-widest text-slate-400">
+              Monitor Probation
+            </div>
             {NAV[role].map(([key, label, Icon, code]) => {
               const on = view === key;
               return (
@@ -565,7 +591,7 @@ export default function App() {
           {role === "HRBP" && view === "pipeline"  && !active && <HRBPPipeline records={records} onOpen={setActiveId} onAdd={addRecord} onReports={() => setView("reports")} />}
           {role === "HRBP" && view === "pipeline"  && active  && <CaseDetail rec={active} role={role} onBack={() => setActiveId(null)} onGenerate={generateLetter} onHrbpAck={hrbpAcknowledge} onReassignLM={reassignLM} onApproveKpiUnlock={approveKpiUnlock} onApproveEarlyConf={approveEarlyConf} allRecords={records} flash={flash} />}
           {role === "HRBP" && view === "sla"       && <SLATracker records={records} onOpen={(id) => { setActiveId(id); setView("pipeline"); }} />}
-          {role === "HRBP" && view === "audit"     && <AuditTrail audit={audit} records={records} onExportLog={(detail) => log(ev("HRBP", "export", `F-08: ${detail}`, ""))} />}
+          {/* {role === "HRBP" && view === "audit"     && <AuditTrail audit={audit} records={records} onExportLog={(detail) => log(ev("HRBP", "export", `F-08: ${detail}`, ""))} />} */}
           {role === "HRBP" && view === "reports"   && <Reports records={records} role="HRBP" onReportExport={reportExport} />}
           {role === "HRBP" && view === "notifications" && <NotificationCenter />}
           {role === "HRBP" && view === "console"   && <SystemConsole records={records} lmPermissions={lmPermissions} setLmPermissions={setLmPermissions} automations={automations} />}
@@ -576,7 +602,7 @@ export default function App() {
           {role === "LEAD" && view === "reports"   && <Reports records={records} role="LEAD" onReportExport={reportExport} />}
 
           {role === "ADMIN" && view === "console"   && <SystemConsole records={records} lmPermissions={lmPermissions} setLmPermissions={setLmPermissions} automations={automations} onPatchAutomation={patchAutomation} />}
-          {role === "ADMIN" && view === "audit"     && <AuditTrail audit={audit} records={records} onExportLog={(detail) => log(ev("HRBP", "export", `F-08: ${detail}`, ""))} />}
+          {/* {role === "ADMIN" && view === "audit"     && <AuditTrail audit={audit} records={records} onExportLog={(detail) => log(ev("HRBP", "export", `F-08: ${detail}`, ""))} />} */}
           {role === "ADMIN" && view === "notifications" && <NotificationCenter />}
         </main>
 

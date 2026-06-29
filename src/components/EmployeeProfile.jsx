@@ -160,6 +160,7 @@ export default function EmployeeProfile({ rec, editable, onSaveProfile, compact 
             </Card>
           )}
 
+          {/* Compliance record — hidden
           {showCompliance && (
           <Card className={compact ? "p-3" : "p-4"}>
             <div className={`text-[10px] font-bold text-slate-400 uppercase tracking-widest ${compact ? "mb-3" : "mb-4"}`}>Compliance record</div>
@@ -192,6 +193,7 @@ export default function EmployeeProfile({ rec, editable, onSaveProfile, compact 
             )}
           </Card>
           )}
+          */}
 
         </div>
       </div>

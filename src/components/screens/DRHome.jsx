@@ -1,12 +1,13 @@
 import { useState } from "react";
-import { ChevronDown, PenLine, CheckCircle2, Clock, FileSignature, Bell, AlertTriangle } from "lucide-react";
-import { TODAY, TONE_CLASS, OUTCOME_LABEL } from "../../constants";
+import { ChevronDown, ChevronRight, PenLine, CheckCircle2, Clock, FileSignature, Bell, AlertTriangle } from "lucide-react";
+import { TODAY, OUTCOME_LABEL } from "../../constants";
 import EmployeeProfile from "../EmployeeProfile";
 import { monthFromStatus } from "../../utils/status";
 import { sortedReviews, reviewLabel, reviewKey, extensionCycles } from "../../utils/lifecycle";
-import { kpisForCycle, kpiTargetLabel } from "../../utils/kpi";
+import { kpisForCycle, kpiTargetLabel, kpiAchievementPct } from "../../utils/kpi";
 import { Card, Btn, StatusBadge, Tag, Mono, RpmDots } from "../ui";
 import LifecycleRail from "../LifecycleRail";
+import { Modal } from "../modals/Modal";
 
 
 const REMINDER_THRESHOLD = 7;
@@ -55,7 +56,6 @@ function DRAcceptPanel({ rec, onAccept }) {
 
   return (
     <div className="p-5 rounded-lg ring-1 brand-card bg-white">
-      <div className={`grid place-items-center w-9 h-9 rounded-lg shrink-0 mb-3 ${TONE_CLASS.accept}`}></div>
       <div className="flex items-center gap-2 mb-1">
         <span className="font-semibold text-slate-800">Acknowledge your Month {n} review</span>
         <span className="text-[10px] text-slate-400" style={{ fontFamily: "var(--mono)" }}>S-05 / F-04</span>
@@ -91,11 +91,12 @@ function DRAcceptPanel({ rec, onAccept }) {
   );
 }
 
-function ESignPanel({ rec, onSign }) {
+function ESignPanel({ rec, onSign, onClose }) {
   const [scrolled, setScrolled] = useState(false);
   const [ack, setAck]           = useState(false);
 
   const outcomeLabel = OUTCOME_LABEL[rec.outcome] || "Outcome";
+  const duration     = rec.gradeBand === "M09_M12" ? "six-month" : "three-month";
 
   function onScroll(e) {
     const el = e.target;
@@ -103,31 +104,74 @@ function ESignPanel({ rec, onSign }) {
   }
 
   return (
-    <Card className="p-5 fadeUp">
-      <div className="flex items-center gap-2 mb-1">
-        <FileSignature size={18} className="text-violet-600" />
-        <span className="font-semibold text-slate-800">Acknowledge your probation letter</span>
-        <Mono className="text-[10px] text-slate-400">S-10 / F-09 / A-10</Mono>
-      </div>
+    <Modal page title="Acknowledge your probation letter" code="S-10 / F-09 / A-10" onClose={onClose}>
       <p className="text-sm text-slate-500 mb-4">Scroll to the end of the letter, then confirm acknowledgement. Your digital footprint (timestamp, employee ID, letter version) will be captured for compliance.</p>
 
-      <div onScroll={onScroll} className="h-56 overflow-y-auto rounded-lg ring-1 ring-slate-200 bg-white p-5 text-sm text-slate-600 leading-relaxed">
-        <div className="text-center mb-4">
-          <div className="font-semibold text-slate-800">PROBATION OUTCOME — {outcomeLabel.toUpperCase()}</div>
-          <Mono className="text-[11px] text-slate-400">{rec.letterId} · {rec.letterType}</Mono>
+      <div onScroll={onScroll} className="h-[55vh] overflow-y-auto rounded-lg ring-1 ring-slate-200 bg-white p-6 text-sm text-slate-600 leading-relaxed">
+        {/* Letterhead */}
+        <div className="flex items-start justify-between border-b border-slate-100 pb-3 mb-4">
+          <div>
+            <div className="font-bold text-slate-800 tracking-tight">FAITH · Daythree</div>
+            <div className="text-[11px] text-slate-400">Human Resources · People &amp; Culture</div>
+          </div>
+          <div className="text-right">
+            <Mono className="block text-[11px] text-slate-400">{rec.letterId} · {rec.letterType}</Mono>
+            <span className="text-[11px] text-slate-400">{TODAY}</span>
+          </div>
         </div>
+
+        <div className="text-[11px] font-semibold uppercase tracking-wider text-rose-600 mb-4">Private &amp; Confidential</div>
+
         <p>Dear {rec.name},</p>
-        <p className="mt-2">Employee ID: {rec.empId} · Grade: {rec.grade}</p>
-        <p className="mt-2">This letter confirms the outcome of your {rec.gradeBand === "M09_M12" ? "six-month" : "three-month"} probation period{rec.acting ? " in your acting assignment" : ""}, following completion of all scheduled monthly performance reviews and your acknowledgements.</p>
-        <p className="mt-2">Outcome: <span className="font-medium text-slate-800">{outcomeLabel}</span>, effective {TODAY}.</p>
-        <p className="mt-2">
-          {rec.outcome === "Ext"        && `Your probation will be extended by a single fixed ${extensionCycles(rec) === 1 ? "one-month" : "three-month"} cycle. A further extension is not available; the subsequent outcome will be confirmation or non-confirmation only.`}
-          {rec.outcome === "NConf"      && "Your employment will not be confirmed. Please refer to the notice and final working day clauses below. This outcome has been subject to mandatory legal review."}
-          {["Conf", "EarlyConf"].includes(rec.outcome) && "We are pleased to confirm your employment. Your status in FAITH will update automatically upon signing."}
-          {rec.outcome === "ActingConf"  && "Your acting role is confirmed. Rewards will action your salary review and new-role benefits."}
-          {rec.outcome === "ActingNConf" && "Your acting assignment will not be confirmed. You will revert to your previous role and the acting allowance will stop immediately."}
+
+        <p className="mt-3 font-semibold text-slate-800">RE: OUTCOME OF YOUR PROBATIONARY PERIOD — {outcomeLabel.toUpperCase()}</p>
+        <p className="mt-1 text-[12px] text-slate-500">
+          Employee ID: {rec.empId}&nbsp; ·&nbsp; Grade: {rec.grade}
+          {rec.dept ? <>&nbsp; ·&nbsp; Department: {rec.dept}</> : null}
+          {rec.position ? <>&nbsp; ·&nbsp; {rec.position}</> : null}
         </p>
-        <p className="mt-2 text-slate-400">By confirming below you acknowledge that you have read and understood this letter in full.</p>
+
+        <p className="mt-4">
+          We refer to your appointment with the organisation and to the {duration} probationary period applicable to your
+          {rec.acting ? " acting assignment" : " role"}, during which your performance, conduct and overall suitability for
+          confirmation have been formally assessed across each scheduled monthly review cycle.
+        </p>
+
+        <p className="mt-3">
+          Following the completion of all scheduled performance reviews, the acknowledgements recorded by you at each cycle, and
+          the recommendation of your Line Manager — subsequently reviewed and endorsed by the HR Business Partner — a formal
+          decision has now been reached in respect of your probation.
+        </p>
+
+        <p className="mt-3">
+          We write to confirm that the outcome of your probation is <span className="font-medium text-slate-800">{outcomeLabel}</span>,
+          taking effect on <span className="font-medium text-slate-800">{TODAY}</span>.
+        </p>
+
+        <p className="mt-3">
+          {rec.outcome === "Ext" && `Your probationary period will be extended by a single fixed ${extensionCycles(rec) === 1 ? "one-month" : "three-month"} cycle, commencing on the effective date above. This is a final extension: no further extension is available, and the subsequent outcome will be limited to confirmation or non-confirmation. You are expected to meet the performance objectives agreed with your Line Manager for the extended period, and the same monthly review and acknowledgement process will continue to apply throughout.`}
+          {rec.outcome === "NConf" && "Following a thorough assessment and the completion of mandatory legal review, the organisation has determined that your employment will not be confirmed. Your employment will accordingly conclude in line with the notice provisions of your contract and prevailing statutory requirements. Details of your final working day, the return of company property, and the settlement of any outstanding entitlements will be communicated to you separately by the Human Resources team."}
+          {["Conf", "EarlyConf"].includes(rec.outcome) && `We are pleased to confirm your employment with the organisation${rec.outcome === "EarlyConf" ? ", ahead of the standard probation period in recognition of your strong and consistent performance" : ""}. Your existing terms and conditions of employment continue to apply, and your employment status will be updated automatically within FAITH upon your acknowledgement of this letter. On behalf of the organisation, we congratulate you and look forward to your continued contribution.`}
+          {rec.outcome === "ActingConf" && "We are pleased to confirm your appointment to the acting role on a substantive basis. The Rewards team will action the associated salary review and any role-based benefits, and your records will be updated accordingly. We thank you for your performance and commitment throughout the acting assignment."}
+          {rec.outcome === "ActingNConf" && "Following assessment of your acting assignment, the organisation has determined that the acting appointment will not be confirmed. You will revert to your previous role with effect from the date above, and the acting allowance will cease accordingly. This outcome does not affect your substantive employment, and your Line Manager will discuss the next steps with you directly."}
+        </p>
+
+        <p className="mt-3">
+          This letter is issued to you through the FAITH platform. By confirming your acknowledgement below, you certify that you
+          have read and understood this letter in full. Your digital footprint — including the date and time of acknowledgement,
+          your employee identifier and the letter version — will be captured and retained as part of your employment record in
+          accordance with company policy and applicable data-retention requirements.
+        </p>
+
+        <p className="mt-3">
+          Should you have any questions regarding this outcome, or require any further clarification, please contact your HR
+          Business Partner in the first instance.
+        </p>
+
+        <p className="mt-4">Yours sincerely,</p>
+        <p className="mt-3 font-medium text-slate-700">Human Resources</p>
+        <p className="text-[12px] text-slate-400">People &amp; Culture · FAITH · Daythree</p>
+
         <p className="mt-6 text-slate-400 text-xs">— End of letter —</p>
       </div>
 
@@ -146,7 +190,7 @@ function ESignPanel({ rec, onSign }) {
           Confirm acknowledgement
         </Btn>
       </div>
-    </Card>
+    </Modal>
   );
 }
 
@@ -178,6 +222,49 @@ function LetterStatusCard({ rec }) {
         </div>
       </div>
     </Card>
+  );
+}
+
+// Expandable review-history row — collapsed shows the cycle + rating; expanding
+// reveals each KPI's actual vs target and achievement %.
+function HistoryReviewRow({ rv, kpis }) {
+  const [open, setOpen] = useState(false);
+  const canExpand = kpis.length > 0;
+  return (
+    <div className="py-2 border-b border-slate-50 last:border-0">
+      <div
+        className={`flex items-center gap-2.5 ${canExpand ? "cursor-pointer hover:bg-slate-50/60 rounded-lg px-1.5 -mx-1.5" : ""}`}
+        onClick={() => canExpand && setOpen((v) => !v)}
+      >
+        {canExpand
+          ? <span className="text-slate-400 shrink-0">{open ? <ChevronDown size={14} /> : <ChevronRight size={14} />}</span>
+          : <span className="w-3.5 shrink-0" />}
+        <Tag className="bg-slate-100 text-slate-600 shrink-0">{reviewLabel(rv)}</Tag>
+        <RpmDots score={rv.rpm} />
+        {rv.reviewDate && <span className="text-xs text-slate-400 ml-auto">{rv.reviewDate}</span>}
+      </div>
+      {rv.rec && <p className="text-xs text-slate-500 mt-1 ml-6">{rv.rec}</p>}
+      {open && (
+        <div className="mt-2 ml-6 rounded-lg bg-slate-50 ring-1 ring-slate-100 p-3 space-y-2">
+          <div className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1">KPI achievement this cycle</div>
+          {kpis.map((k, i) => {
+            const hasActual = k.actual != null && Number(k.target) > 0;
+            const pct = Math.round(kpiAchievementPct(k));
+            return (
+              <div key={i} className="flex items-start justify-between gap-3">
+                <div className="flex-1 min-w-0">
+                  <div className="text-xs font-medium text-slate-700">{k.name}</div>
+                  <div className="text-[11px] text-slate-400 mt-0.5">
+                    {hasActual ? <>{k.actual} / {kpiTargetLabel(k)} · <span className={pct >= 60 ? "text-emerald-600" : "text-amber-600"}>{pct}%</span></> : kpiTargetLabel(k)}
+                  </div>
+                </div>
+                <Tag className="bg-cyan-50 text-cyan-700 shrink-0 text-[11px]">{k.weight}%</Tag>
+              </div>
+            );
+          })}
+        </div>
+      )}
+    </div>
   );
 }
 
@@ -325,21 +412,7 @@ export default function DRHome({ records, asDr, setAsDr, onAccept, onSign, onUpd
             const base = all.filter((rv) => rv.phase !== "EXT");
             const ext  = all.filter((rv) => rv.phase === "EXT");
             const renderRow = (rv) => (
-              <div key={reviewKey(rv)} className="py-2 border-b border-slate-50 last:border-0">
-                <div className="flex items-center gap-3 mb-1">
-                  <Tag className="bg-slate-100 text-slate-600 shrink-0">{reviewLabel(rv)}</Tag>
-                  <RpmDots score={rv.rpm} />
-                  {rv.reviewDate && <span className="text-xs text-slate-400 ml-auto">{rv.reviewDate}</span>}
-                </div>
-                {rv.rec && <p className="text-xs text-slate-500 mt-1">{rv.rec}</p>}
-                {(rv.kpisSnapshot || kpisForCycle(rec, rv.cycle)).length > 0 && (
-                  <div className="mt-2 flex flex-wrap gap-1.5">
-                    {(rv.kpisSnapshot || kpisForCycle(rec, rv.cycle)).map((k, i) => (
-                      <Tag key={i} className="bg-cyan-50 text-cyan-700">{k.name}</Tag>
-                    ))}
-                  </div>
-                )}
-              </div>
+              <HistoryReviewRow key={reviewKey(rv)} rv={rv} kpis={rv.kpisSnapshot || kpisForCycle(rec, rv.cycle)} />
             );
             // No extension yet → keep a single flat list.
             if (ext.length === 0) return <div className="space-y-3">{base.map(renderRow)}</div>;
@@ -364,7 +437,7 @@ export default function DRHome({ records, asDr, setAsDr, onAccept, onSign, onUpd
 
       {tab === "letter" && (
         signDue
-          ? <ESignPanel rec={rec} onSign={onSign} />
+          ? <ESignPanel rec={rec} onSign={onSign} onClose={() => setTab("overview")} />
           : <LetterStatusCard rec={rec} />
       )}
     </div>

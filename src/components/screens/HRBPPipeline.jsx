@@ -2,7 +2,7 @@ import { useState } from "react";
 import { Users, FileText, AlertTriangle, PenLine, ChevronRight, Plus, BarChart2, Filter } from "lucide-react";
 import { daysCap } from "../../utils/lifecycle";
 import { isActiveProbation, statusLabel, statusRank, defaultRowOrder } from "../../utils/status";
-import { Card, PageHead, StatusBadge, Tag, Mono, Stat, Btn, SortTh } from "../ui";
+import { Card, PageHead, StatusBadge, Tag, Mono, Stat, Btn, SortTh, Pager } from "../ui";
 import { useSort } from "../../utils/useSort";
 import InitiateModal from "../modals/InitiateModal";
 
@@ -17,6 +17,8 @@ export default function HRBPPipeline({ records, onOpen, onAdd, onReports }) {
     ["sign",   "Awaiting sign-off"],
   ];
   const [tab, setTab] = useState("all");
+  const [page, setPage] = useState(0);
+  const PAGE_SIZE = 12;
 
   const tabRecords = records.filter((r) => {
     if (tab === "action") return r.earlyConfRequest?.status === "Pending" || ["Pending-Letter", "Pending-Letter(Acting)", "Ext-Pending-Letter", "HRBP-Ack", "HRBP-Ack(Acting)", "Ext-HRBP-Ack"].includes(r.status);
@@ -37,6 +39,9 @@ export default function HRBPPipeline({ records, onOpen, onAdd, onReports }) {
   }, defaultRowOrder("HRBP"));
 
   const f = sortRows(tabRecords.filter((r) => statusFilter === "all" || r.status === statusFilter));
+  const pageCount = Math.ceil(f.length / PAGE_SIZE);
+  const safePage  = Math.min(page, Math.max(0, pageCount - 1));
+  const paged     = f.slice(safePage * PAGE_SIZE, (safePage + 1) * PAGE_SIZE);
 
   return (
     <div className="fadeUp">
@@ -56,7 +61,7 @@ export default function HRBPPipeline({ records, onOpen, onAdd, onReports }) {
 
       <div className="flex gap-1.5 mb-4 flex-wrap">
         {TABS.map(([k, l]) => (
-          <button key={k} onClick={() => { setTab(k); setStatusFilter("all"); }} className={`text-sm px-3 py-1.5 rounded-lg font-medium transition ${tab === k ? "text-white" : "text-slate-600 bg-white ring-1 ring-slate-200 hover:bg-slate-50"}`} style={tab === k ? { background: "var(--brand)" } : {}}>
+          <button key={k} onClick={() => { setTab(k); setStatusFilter("all"); setPage(0); }} className={`text-sm px-3 py-1.5 rounded-lg font-medium transition ${tab === k ? "text-white" : "text-slate-600 bg-white ring-1 ring-slate-200 hover:bg-slate-50"}`} style={tab === k ? { background: "var(--brand)" } : {}}>
             {l}
           </button>
         ))}
@@ -70,7 +75,7 @@ export default function HRBPPipeline({ records, onOpen, onAdd, onReports }) {
             <Filter size={16} className="text-slate-400" />
             <select
               value={statusFilter}
-              onChange={(e) => setStatusFilter(e.target.value)}
+              onChange={(e) => { setStatusFilter(e.target.value); setPage(0); }}
               className="min-w-[220px] bg-white text-sm text-slate-700 ring-1 ring-slate-200 rounded-lg px-3 py-1.5 outline-none focus:ring-cyan-400"
             >
               <option value="all">All statuses</option>
@@ -86,7 +91,7 @@ export default function HRBPPipeline({ records, onOpen, onAdd, onReports }) {
             <thead>
               <tr className="text-left text-[11px] uppercase tracking-wider text-slate-400 border-b border-slate-100">
                 <SortTh label="Employee" sortKey="name" sort={sort} onSort={toggle} />
-                <SortTh label="LM" sortKey="lm" sort={sort} onSort={toggle} />
+                <SortTh label="Line Manager" sortKey="lm" sort={sort} onSort={toggle} />
                 <SortTh label="Status" sortKey="status" sort={sort} onSort={toggle} />
                 <SortTh label="Day" sortKey="day" sort={sort} onSort={toggle} />
                 <SortTh label="SLA" sortKey="sla" sort={sort} onSort={toggle} />
@@ -94,7 +99,7 @@ export default function HRBPPipeline({ records, onOpen, onAdd, onReports }) {
               </tr>
             </thead>
             <tbody>
-              {f.map((r) => {
+              {paged.map((r) => {
                 const ackDue    = ["HRBP-Ack", "HRBP-Ack(Acting)", "Ext-HRBP-Ack"].includes(r.status);
                 const letterDue = ["Pending-Letter", "Pending-Letter(Acting)", "Ext-Pending-Letter"].includes(r.status);
                 const earlyConfDue = r.earlyConfRequest?.status === "Pending";
@@ -133,6 +138,7 @@ export default function HRBPPipeline({ records, onOpen, onAdd, onReports }) {
             </tbody>
           </table>
         </div>
+        <Pager page={safePage} pageCount={pageCount} total={f.length} pageSize={PAGE_SIZE} onPage={setPage} />
       </Card>
     </div>
   );

@@ -60,7 +60,7 @@ export const NAV = {
   HRBP: [
     ["pipeline", "Probation Pipeline",   LayoutDashboard, "S-06"],
     ["sla",      "SLA Tracker",          Clock,           "S-08"],
-    ["audit",    "Audit Trail",          ScrollText,      "S-09"],
+    // ["audit",    "Audit Trail",          ScrollText,      "S-09"], // hidden — compliance audit trail
     ["reports",  "Reports & Analytics",  BarChart3,       "S-12"],
     ["notifications", "Notification Engine", Bell,        "S-05"],
     ["console",  "System Console",       Settings,        "A-01·02·04"],
@@ -75,7 +75,7 @@ export const NAV = {
   ],
   ADMIN: [
     ["console",  "System Console",       Settings,        "A-01"],
-    ["audit",    "Master Audit",         ScrollText,      "S-09"],
+    // ["audit",    "Master Audit",         ScrollText,      "S-09"], // hidden — compliance audit trail
     ["notifications", "Dispatcher",       Bell,           "S-05"],
   ],
 };

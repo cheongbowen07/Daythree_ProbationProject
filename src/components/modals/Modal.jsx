@@ -5,22 +5,26 @@ import { Mono } from "../ui";
 export function Modal({ title, code, onClose, children, wide, xl, page }) {
   const maxW = xl ? "max-w-6xl" : wide ? "max-w-2xl" : "max-w-lg";
 
-  // Page mode: render the same content inline as a full-width page (no overlay)
-  // instead of a centered popup. Lets a modal be promoted to a real page.
+  // Page mode: take over the whole viewport as a focused, sidebar-free page
+  // (rendered to <body> so it sits above the app shell — header + nav). Lets a
+  // modal be promoted to a real full-screen page without the surrounding chrome.
   if (page) {
-    return (
-      <div className="fadeUp">
-        <button onClick={onClose} className="text-sm text-slate-500 hover:text-slate-700 flex items-center gap-1 mb-3">
-          <ChevronLeft size={15} /> Back
-        </button>
-        <div className="flex items-center gap-2 mb-4">
-          <h1 className="text-[22px] font-semibold tracking-tight text-[#4D4D4D]">{title}</h1>
-          {code && <Mono className="text-[11px] text-slate-400">{code}</Mono>}
+    return createPortal(
+      <div className="fixed inset-0 z-50 overflow-y-auto" style={{ background: "var(--paper)" }}>
+        <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-6 fadeUp">
+          <button onClick={onClose} className="text-sm text-slate-500 hover:text-slate-700 flex items-center gap-1 mb-3">
+            <ChevronLeft size={15} /> Back
+          </button>
+          <div className="flex items-center gap-2 mb-4">
+            <h1 className="text-[22px] font-semibold tracking-tight text-[#4D4D4D]">{title}</h1>
+            {code && <Mono className="text-[11px] text-slate-400">{code}</Mono>}
+          </div>
+          <div className="bg-white rounded-2xl shadow-sm ring-1 ring-slate-100 p-5 sm:p-6">
+            {children}
+          </div>
         </div>
-        <div className="bg-white rounded-2xl shadow-sm ring-1 ring-slate-100 p-5 sm:p-6">
-          {children}
-        </div>
-      </div>
+      </div>,
+      document.body
     );
   }
 

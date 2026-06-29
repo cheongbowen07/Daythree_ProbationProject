@@ -200,6 +200,7 @@ function HrbpAckPanel({ rec, onHrbpAck }) {
   const [remarks, setRemarks] = useState("");
   const label = OUTCOME_LABEL[rec.outcome] || rec.outcome;
   const lt    = OUTCOME_LT[rec.outcome] || "—";
+  const canReturn = remarks.trim().length > 0; // a remark is mandatory to return to the LM
   return (
     <Card className="p-5">
       <div className="flex items-center gap-2 mb-1">
@@ -225,7 +226,7 @@ function HrbpAckPanel({ rec, onHrbpAck }) {
         </div>
       )}
 
-      <label className="block text-xs text-slate-500 mb-1">Remarks (optional)</label>
+      <label className="block text-xs text-slate-500 mb-1">Remarks <span className="text-slate-400">(optional to acknowledge · required to return to LM)</span></label>
       <textarea
         value={remarks}
         onChange={(e) => setRemarks(e.target.value)}
@@ -238,10 +239,18 @@ function HrbpAckPanel({ rec, onHrbpAck }) {
         <Btn icon={Send} onClick={() => onHrbpAck(rec.id, true, remarks)} className="flex-1">
           Acknowledge &amp; proceed to letter
         </Btn>
-        <Btn variant="ghost" icon={XCircle} onClick={() => onHrbpAck(rec.id, false, remarks)} className="text-rose-600 ring-rose-200 hover:bg-rose-50">
+        <Btn
+          variant="ghost"
+          icon={XCircle}
+          disabled={!canReturn}
+          onClick={() => canReturn && onHrbpAck(rec.id, false, remarks)}
+          title={canReturn ? undefined : "Add a remark explaining why you are returning the decision to the LM"}
+          className="text-rose-600 ring-rose-200 hover:bg-rose-50"
+        >
           Return to LM
         </Btn>
       </div>
+      {!canReturn && <p className="text-[11px] text-slate-400 mt-2">A remark is required to return the decision to the Line Manager.</p>}
     </Card>
   );
 }
@@ -337,6 +346,19 @@ export default function CaseDetail({ rec, role, onBack, onSubmitReview, onSaveRe
   const earlyConfApprovalDue = role === "HRBP" && rec.earlyConfRequest?.status === "Pending";
   const earlyConfVisible = role === "LM" && rec.wf === "WF1" && /Mth[1-6]/.test(rec.status);
   const earlyConf        = earlyConfVisible && rec.gradeBand === "M09_M12" && /Mth[3-6]/.test(rec.status);
+
+  // Editing KPI targets only helps a review cycle that hasn't happened yet.
+  // Once the final review is accepted (e.g. Month 6 / Month 3) or the record has
+  // moved into the outcome/letter/sign stages, there's no upcoming cycle to
+  // configure — so the Edit-KPI action is redundant.
+  const finalCycle = rec.phase === "EXT" ? extensionCycles(rec) : totalCycles(rec);
+  const kpiEditRedundant =
+    LM_OUTCOME_STATUSES.includes(rec.status) ||
+    HRBP_ACK_STATUSES.includes(rec.status) ||
+    LETTER_DUE_STATUSES.includes(rec.status) ||
+    /-Letter$/.test(rec.status) ||
+    /Sign-Off$/.test(rec.status) ||
+    (/-DR-Acpt$/.test(rec.status) && n >= finalCycle);
 
   // Review history card — placed in the right sidebar for HRBP, left column otherwise.
   const reviewHistoryCard = (
@@ -456,8 +478,27 @@ export default function CaseDetail({ rec, role, onBack, onSubmitReview, onSaveRe
           {hrbpAckDue   && <HrbpAckPanel  rec={rec} onHrbpAck={onHrbpAck} />}
           {letterDue    && <LetterGenPanel rec={rec} onGenerate={onGenerate} />}
           {role === "HRBP" && rec.kpiUnlockRequested && onApproveKpiUnlock && (
-            <ActionPanel code="BR-10" title="KPI unlock request" tone="kpi" desc={`${rec.lm} has requested permission to edit the submitted KPIs for ${rec.name}.`}>
-              <Btn icon={ShieldCheck} onClick={() => onApproveKpiUnlock(rec.id)}>Approve unlock</Btn>
+            <ActionPanel
+              code="BR-10"
+              title={rec.proposedKpis ? "KPI change request" : "KPI unlock request"}
+              tone="kpi"
+              desc={rec.proposedKpis
+                ? `${rec.lm} has proposed revised Month ${rec.proposedKpis.cycle} KPI targets for ${rec.name}. Review and approve to apply them.`
+                : `${rec.lm} has requested permission to edit the submitted KPIs for ${rec.name}.`}
+            >
+              {rec.proposedKpis?.kpis?.length > 0 && (
+                <div className="mb-3 rounded-lg ring-1 ring-slate-200 bg-slate-50 divide-y divide-slate-100">
+                  {rec.proposedKpis.kpis.map((k, i) => (
+                    <div key={i} className="flex items-center justify-between gap-3 px-3 py-2 text-sm">
+                      <span className="font-medium text-slate-700 truncate">{k.name || "—"}</span>
+                      <span className="text-xs text-slate-500 shrink-0">{kpiTargetLabel(k)} · weight {k.weight}%</span>
+                    </div>
+                  ))}
+                </div>
+              )}
+              <Btn icon={ShieldCheck} onClick={() => onApproveKpiUnlock(rec.id)}>
+                {rec.proposedKpis ? "Approve KPI change" : "Approve unlock"}
+              </Btn>
             </ActionPanel>
           )}
           {!kpiDue && !lmReviewDue && !lmOutcomeDue && !earlyConfApprovalDue && !hrbpAckDue && !letterDue && !(role === "HRBP" && rec.kpiUnlockRequested) && (
@@ -489,7 +530,14 @@ export default function CaseDetail({ rec, role, onBack, onSubmitReview, onSaveRe
               <div className="text-[10px] uppercase tracking-wider text-slate-400 font-medium mb-1">Manager actions</div>
 
               {!kpiDue && rec.kpis?.length > 0 && (
-                <Btn variant="soft" size="sm" icon={ClipboardList} className="w-full" onClick={() => setSubPage("kpi")}>
+                <Btn
+                  variant="soft"
+                  size="sm"
+                  icon={ClipboardList}
+                  disabled={kpiEditRedundant}
+                  className={`w-full ${kpiEditRedundant ? "opacity-40 cursor-not-allowed pointer-events-none" : ""}`}
+                  onClick={() => !kpiEditRedundant && setSubPage("kpi")}
+                >
                   Edit Monthly KPI target (F-02)
                 </Btn>
               )}

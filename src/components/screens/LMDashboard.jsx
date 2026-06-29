@@ -3,12 +3,14 @@ import { Search, Bell, Users, ClipboardList, CheckCircle2, ChevronRight } from "
 import { LM_SELF } from "../../constants";
 import { isActiveProbation, pendingFor, statusRank, defaultRowOrder } from "../../utils/status";
 import { daysCap, totalCycles } from "../../utils/lifecycle";
-import { Card, StatusBadge, Tag, PageHead, Mono, Stat, SortTh } from "../ui";
+import { Card, StatusBadge, Tag, PageHead, Mono, Stat, SortTh, Pager } from "../ui";
 import { useSort } from "../../utils/useSort";
 
 export default function LMDashboard({ records, onOpen }) {
   const [q, setQ]           = useState("");
   const [tab, setTab]       = useState("all");
+  const [page, setPage]     = useState(0);
+  const PAGE_SIZE = 10;
 
   const { sort, toggle, sortRows } = useSort({
     name:        (r) => r.name,
@@ -30,6 +32,9 @@ export default function LMDashboard({ records, onOpen }) {
   const searched = view.filter((r) => (r.name + r.empId).toLowerCase().includes(q.toLowerCase()));
   const filtered = sortRows(searched);
   const pending  = team.filter((r) => pendingFor(r, "LM")).length;
+  const pageCount = Math.ceil(filtered.length / PAGE_SIZE);
+  const safePage  = Math.min(page, Math.max(0, pageCount - 1));
+  const paged     = filtered.slice(safePage * PAGE_SIZE, (safePage + 1) * PAGE_SIZE);
 
   return (
     <div className="fadeUp h-full min-h-0 flex flex-col">
@@ -42,7 +47,7 @@ export default function LMDashboard({ records, onOpen }) {
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-5">
         <Stat label="Direct reports"   value={team.length}                                               icon={Users}          />
         <Stat label="Pending my action" value={pending}                                                  icon={Bell}    tone="amber"   />
-        <Stat label="In review cycle"  value={team.filter((r) => /Mth/.test(r.status)).length}          icon={ClipboardList}  />
+        <Stat label="In progress"      value={team.filter((r) => isActiveProbation(r.status)).length}   icon={ClipboardList}  />
         <Stat label="Completed"        value={team.filter((r) => !isActiveProbation(r.status)).length}  icon={CheckCircle2} tone="emerald" />
       </div>
 
@@ -53,7 +58,7 @@ export default function LMDashboard({ records, onOpen }) {
           ["normal", "New Hire", `${normal.length}`],
           ["acting", `Acting-role (WF2) · S-11`, `${acting.length}`],
         ].map(([key, label, badge]) => (
-          <button key={key} onClick={() => setTab(key)}
+          <button key={key} onClick={() => { setTab(key); setPage(0); }}
             className={`px-4 py-2 text-sm font-medium border-b-2 -mb-px transition flex items-center gap-2 ${tab === key ? "border-violet-500 text-violet-700" : "border-transparent text-slate-500 hover:text-slate-700"}`}>
             {label}
             <span className={`text-[10px] px-1.5 py-0.5 rounded font-mono ${tab === key ? "bg-violet-100 text-violet-700" : "bg-slate-100 text-slate-500"}`}>{badge}</span>
@@ -64,7 +69,7 @@ export default function LMDashboard({ records, onOpen }) {
       <Card className="flex-1 min-h-0 overflow-hidden flex flex-col">
         <div className="flex items-center gap-2 px-4 py-3 border-b border-slate-100">
           <Search size={16} className="text-slate-400" />
-          <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Search name or employee ID…" className="flex-1 text-sm outline-none placeholder:text-slate-400 bg-transparent" />
+          <input value={q} onChange={(e) => { setQ(e.target.value); setPage(0); }} placeholder="Search name or employee ID…" className="flex-1 text-sm outline-none placeholder:text-slate-400 bg-transparent" />
         </div>
         <div className="flex-1 min-h-0 overflow-auto">
           <table className="w-full text-sm">
@@ -82,7 +87,7 @@ export default function LMDashboard({ records, onOpen }) {
               </tr>
             </thead>
             <tbody>
-              {filtered.map((r) => {
+              {paged.map((r) => {
                 const due = pendingFor(r, "LM");
                 return (
                   <tr key={r.id} className="border-b border-slate-50 hover:bg-slate-50/70 cursor-pointer" onClick={() => onOpen(r.id)}>
@@ -121,6 +126,7 @@ export default function LMDashboard({ records, onOpen }) {
             </tbody>
           </table>
         </div>
+        <Pager page={safePage} pageCount={pageCount} total={filtered.length} pageSize={PAGE_SIZE} onPage={setPage} />
       </Card>
     </div>
   );
