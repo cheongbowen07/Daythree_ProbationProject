@@ -1,46 +1,46 @@
 import { useState } from "react";
 import { Plus, X } from "lucide-react";
 import { TODAY, inputCls } from "../../constants";
-import { totalCycles } from "../../utils/lifecycle";
-import { editableKpisForCycle } from "../../utils/kpi";
-import { Btn, Tag } from "../ui";
+import { totalCycles, extensionCycles } from "../../utils/lifecycle";
+import {
+  editableKpisForCycle, computeRpm, overallAchievementPct,
+  kpiAchievementPct, kpiTargetLabel, RPM_MEETS,
+} from "../../utils/kpi";
+import { Btn, Tag, RpmDots } from "../ui";
 import { Modal, Field } from "./Modal";
 
-export default function ReviewModal({ rec, month, onClose, onSubmit, onSaveDraft }) {
+export default function ReviewModal({ rec, month, onClose, onSubmit, onSaveDraft, page }) {
   const draft = rec.reviewDrafts?.[month] || rec.reviewDrafts?.[String(month)];
   const [tab, setTab]                 = useState("review");
-  const [rpm, setRpm]               = useState(draft?.rpm || 3);
   const [comments, setComments]     = useState(draft?.comments || "");
-  const [kpiSummary, setKpiSummary] = useState(draft?.kpiSummary || "");
   const [kpis, setKpis]             = useState(() => draft?.kpis?.length ? draft.kpis : editableKpisForCycle(rec, month));
   const [actingCtx, setActingCtx]   = useState(draft?.actingCtx || "");
   const [reviewDate, setReviewDate] = useState(draft?.reviewDate || TODAY);
   const [recmd, setRecmd]           = useState(draft?.recmd || "Satisfactory");
-  const cycles = rec.phase === "EXT" ? 3 : totalCycles(rec);
+  const cycles = rec.phase === "EXT" ? extensionCycles(rec) : totalCycles(rec);
   const canEditKpis = month > 1;
   const totalWeight = kpis.reduce((a, k) => a + (Number(k.weight) || 0), 0);
-  const kpisValid = kpis.length >= 1 && kpis.every((k) => k.name.trim()) && totalWeight === 100;
-  const valid  = comments.trim().length >= 20 && (!canEditKpis || kpisValid);
 
+  // RPM is derived from KPI achievement — never chosen by the LM.
+  const overallPct = overallAchievementPct(kpis);
+  const rpm        = computeRpm(kpis);
+
+  const targetsValid = kpis.length >= 1 && kpis.every((k) => k.name.trim() && Number(k.target) > 0);
+  const weightsValid = totalWeight === 100;
+  const valid = comments.trim().length >= 20 && targetsValid && (!canEditKpis || weightsValid);
+
+  // Actuals can always be recorded; name/target/unit/weight are only editable for month > 1.
   function updKpi(i, key, val) {
-    if (!canEditKpis) return;
+    if (key !== "actual" && !canEditKpis) return;
     setKpis((rows) => rows.map((row, j) => (j === i ? { ...row, [key]: val } : row)));
   }
 
   function currentDraft() {
-    return {
-      rpm,
-      comments,
-      kpiSummary,
-      kpis,
-      actingCtx,
-      reviewDate,
-      recmd,
-    };
+    return { comments, kpis, actingCtx, reviewDate, recmd };
   }
 
   return (
-    <Modal title={`Month ${month} performance review`} code="S-03 / F-03" onClose={onClose} wide>
+    <Modal title={`Month ${month} performance review`} code="S-03 / F-03" onClose={onClose} xl page={page}>
       <div className="text-sm text-slate-500 mb-4">
         {rec.name} · {rec.empId} · cycle {month} of {cycles}
         {rec.wf === "WF2" && <span className="ml-2 text-violet-600 font-medium">(Acting role)</span>}
@@ -75,18 +75,54 @@ export default function ReviewModal({ rec, month, onClose, onSubmit, onSaveDraft
           </Field>
         </div>
 
-        <Field label="RPM rating (1–5 · ≥3 meets expectations)">
-          <div className="flex gap-2 mt-1">
-            {[1, 2, 3, 4, 5].map((n) => (
-              <button key={n} onClick={() => setRpm(n)} className={`w-11 h-11 rounded-lg font-semibold text-sm ring-1 transition ${rpm === n ? "text-white ring-transparent" : "ring-slate-200 text-slate-500 hover:bg-slate-50"}`} style={rpm === n ? { background: n >= 3 ? "#2BAF70" : "#D62828" } : {}}>
-                {n}
-              </button>
-            ))}
+        {/* KPI rating — auto-calculated from weighted KPI achievement, shown read-only */}
+        <Field label="KPI rating (auto-calculated · 1–10)">
+          <div className="mt-1 flex items-center justify-between gap-3 rounded-lg ring-1 ring-slate-200 bg-slate-50 px-4 py-3">
+            <div>
+              <div className="text-2xl font-bold text-slate-800 leading-none">{rpm}<span className="text-base font-medium text-slate-400">/10</span></div>
+              <div className={`text-xs font-medium mt-1 ${rpm >= RPM_MEETS ? "text-emerald-600" : "text-rose-600"}`}>
+                {rpm >= RPM_MEETS ? "Meets expectations" : "Below threshold"} · {Math.round(overallPct)}% weighted achievement
+              </div>
+            </div>
+            <RpmDots score={rpm} />
           </div>
         </Field>
 
-        <Field label="KPI achievement summary">
-          <textarea value={kpiSummary} onChange={(e) => setKpiSummary(e.target.value)} rows={2} className={`mt-1 ${inputCls}`} placeholder="Summarise performance against each KPI target…" />
+        {/* KPI achievement entry — record the DR's actual against each discrete target */}
+        <Field label="Monthly KPI achievement">
+          <div className="mt-1 rounded-lg ring-1 ring-slate-200 bg-slate-50 overflow-hidden divide-y divide-slate-100">
+            {kpis.length === 0
+              ? <p className="text-xs text-slate-400 px-3 py-2.5">No KPIs set for this cycle.</p>
+              : kpis.map((k, i) => {
+                  const pct = Math.round(kpiAchievementPct(k));
+                  return (
+                    <div key={i} className="px-3 py-2.5">
+                      <div className="flex items-start justify-between gap-3">
+                        <div className="min-w-0">
+                          <div className="text-sm font-medium text-slate-700">{k.name || "—"}</div>
+                          {k.desc && <div className="text-[11px] text-slate-400 mt-0.5">{k.desc}</div>}
+                        </div>
+                        <Tag className="bg-slate-100 text-slate-500 shrink-0">weight {k.weight}%</Tag>
+                      </div>
+                      <div className="flex items-center gap-2 mt-2">
+                        <input
+                          type="number"
+                          min="0"
+                          value={k.actual}
+                          onChange={(e) => updKpi(i, "actual", e.target.value)}
+                          className={`w-24 ${inputCls}`}
+                          placeholder="Actual"
+                        />
+                        <span className="text-xs text-slate-400">of <span className="font-medium text-slate-600">{kpiTargetLabel(k)}</span></span>
+                        <span className={`ml-auto text-xs font-semibold ${pct >= 60 ? "text-emerald-600" : "text-amber-600"}`}>{pct}%</span>
+                      </div>
+                    </div>
+                  );
+                })}
+          </div>
+          <p className="text-[11px] text-slate-400 mt-1">
+            RPM is derived from these results.{canEditKpis ? " Adjust targets / weights in the “Edit Monthly KPI” tab." : ""}
+          </p>
         </Field>
 
         <Field label="Performance comments (min 20 chars)">
@@ -121,7 +157,7 @@ export default function ReviewModal({ rec, month, onClose, onSubmit, onSaveDraft
             <div className="flex items-center justify-between gap-3 mb-2">
               <p className="text-xs text-slate-500">
                 {canEditKpis
-                  ? "Update this month's KPI targets before submitting the review. The direct report will be notified if these KPIs change."
+                  ? "Set a discrete, measurable target for each KPI (SMART). The direct report will be notified if these change."
                   : "Month 1 uses the original KPI set submitted at setup."}
               </p>
               <Tag className={totalWeight === 100 ? "bg-emerald-50 text-emerald-700" : "bg-rose-50 text-rose-700"}>{totalWeight}%</Tag>
@@ -129,16 +165,18 @@ export default function ReviewModal({ rec, month, onClose, onSubmit, onSaveDraft
             <div className="grid grid-cols-12 gap-2 mb-1 px-0.5">
               <span className="col-span-3 text-[10px] font-semibold text-slate-400 uppercase tracking-wider">KPI name</span>
               <span className="col-span-3 text-[10px] font-semibold text-slate-400 uppercase tracking-wider">Description</span>
-              <span className="col-span-3 text-[10px] font-semibold text-slate-400 uppercase tracking-wider">Target</span>
-              <span className="col-span-2 text-[10px] font-semibold text-slate-400 uppercase tracking-wider">Weight</span>
+              <span className="col-span-2 text-[10px] font-semibold text-slate-400 uppercase tracking-wider">Target</span>
+              <span className="col-span-2 text-[10px] font-semibold text-slate-400 uppercase tracking-wider">Unit</span>
+              <span className="col-span-1 text-[10px] font-semibold text-slate-400 uppercase tracking-wider">Wt%</span>
             </div>
             <div className="space-y-2">
               {kpis.map((k, i) => (
                 <div key={i} className="grid grid-cols-12 gap-2">
                   <input value={k.name} onChange={(e) => updKpi(i, "name", e.target.value)} readOnly={!canEditKpis} className={`col-span-3 ${inputCls} ${!canEditKpis ? "opacity-70 cursor-not-allowed" : ""}`} />
                   <input value={k.desc || ""} onChange={(e) => updKpi(i, "desc", e.target.value)} readOnly={!canEditKpis} className={`col-span-3 ${inputCls} ${!canEditKpis ? "opacity-70 cursor-not-allowed" : ""}`} />
-                  <input value={k.target || ""} onChange={(e) => updKpi(i, "target", e.target.value)} readOnly={!canEditKpis} className={`col-span-3 ${inputCls} ${!canEditKpis ? "opacity-70 cursor-not-allowed" : ""}`} />
-                  <input type="number" value={k.weight} onChange={(e) => updKpi(i, "weight", e.target.value)} readOnly={!canEditKpis} className={`col-span-2 ${inputCls} ${!canEditKpis ? "opacity-70 cursor-not-allowed" : ""}`} />
+                  <input type="number" min="0" value={k.target} onChange={(e) => updKpi(i, "target", e.target.value)} readOnly={!canEditKpis} className={`col-span-2 ${inputCls} ${!canEditKpis ? "opacity-70 cursor-not-allowed" : ""}`} />
+                  <input value={k.unit || ""} onChange={(e) => updKpi(i, "unit", e.target.value)} readOnly={!canEditKpis} placeholder="e.g. calls" className={`col-span-2 ${inputCls} ${!canEditKpis ? "opacity-70 cursor-not-allowed" : ""}`} />
+                  <input type="number" value={k.weight} onChange={(e) => updKpi(i, "weight", e.target.value)} readOnly={!canEditKpis} className={`col-span-1 ${inputCls} ${!canEditKpis ? "opacity-70 cursor-not-allowed" : ""}`} />
                   <button type="button" onClick={() => canEditKpis && setKpis((rows) => rows.filter((_, j) => j !== i))} disabled={!canEditKpis || kpis.length === 1} className="col-span-1 grid place-items-center h-9 text-slate-400 hover:text-rose-500 disabled:opacity-30">
                     <X size={16} />
                   </button>
@@ -151,7 +189,7 @@ export default function ReviewModal({ rec, month, onClose, onSubmit, onSaveDraft
                 size="sm"
                 icon={Plus}
                 disabled={kpis.length >= 10}
-                onClick={() => setKpis((rows) => [...rows, { name: "", desc: "", target: "", weight: 0 }])}
+                onClick={() => setKpis((rows) => [...rows, { name: "", desc: "", target: 0, unit: "", actual: 0, weight: 0 }])}
                 className="mt-3"
               >
                 Add KPI
@@ -164,7 +202,7 @@ export default function ReviewModal({ rec, month, onClose, onSubmit, onSaveDraft
 
       <div className="flex justify-end gap-2 mt-4 pt-3 border-t border-slate-100">
         <Btn variant="ghost" onClick={() => onSaveDraft?.(currentDraft())}>Save draft</Btn>
-        <Btn disabled={!valid} onClick={() => onSubmit(rpm, comments, { kpiSummary, kpis: canEditKpis ? kpis : null, actingCtx, reviewDate, recmd })}>Submit review</Btn>
+        <Btn disabled={!valid} onClick={() => onSubmit(rpm, comments, { kpis, actingCtx, reviewDate, recmd })}>Submit review</Btn>
       </div>
     </Modal>
   );

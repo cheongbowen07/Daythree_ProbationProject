@@ -63,6 +63,26 @@ export function Card({ children, className = "" }) {
   return <div className={`rounded-lg bg-white ring-1 brand-card ${className}`}>{children}</div>;
 }
 
+// Clickable table header that drives column sorting. Pair with useSort:
+//   <SortTh label="Status" sortKey="status" sort={sort} onSort={toggle} />
+export function SortTh({ label, sortKey, sort, onSort, align = "left", className = "" }) {
+  const active = sort?.key === sortKey;
+  const arrow = !active ? "↕" : sort.dir === "asc" ? "▲" : "▼";
+  return (
+    <th className={`px-4 py-2.5 font-medium ${align === "right" ? "text-right" : ""} ${className}`}>
+      <button
+        type="button"
+        onClick={() => onSort(sortKey)}
+        className={`inline-flex items-center gap-1 uppercase tracking-wider transition hover:text-slate-600 ${active ? "text-slate-600" : ""} ${align === "right" ? "flex-row-reverse" : ""}`}
+        title={`Sort by ${label}`}
+      >
+        {label}
+        <span className={`text-[9px] leading-none ${active ? "opacity-100" : "opacity-30"}`}>{arrow}</span>
+      </button>
+    </th>
+  );
+}
+
 export function Btn({ children, onClick, variant = "primary", size = "md", disabled, icon: Icon, className = "" }) {
   const sizes = { md: "px-3.5 py-2 text-sm", sm: "px-2.5 py-1.5 text-xs", lg: "px-4 py-2.5 text-sm" };
   const styles = {
@@ -114,12 +134,13 @@ export function Row({ k, v }) {
 }
 
 export function RpmDots({ score }) {
+  const meets = score >= 6; // ≥6 of 10 meets expectations
   return (
     <div className="flex items-center gap-0.5">
-      {[1, 2, 3, 4, 5].map((i) => (
-        <div key={i} className={`w-2.5 h-2.5 rounded-sm ${i <= score ? (score >= 3 ? "bg-[#3CC49F]" : "bg-[#C8102E]") : "bg-[#F4F4F4]"}`} />
+      {[1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map((i) => (
+        <div key={i} className={`w-2 h-2.5 rounded-sm ${i <= score ? (meets ? "bg-[#3CC49F]" : "bg-[#C8102E]") : "bg-[#F4F4F4]"}`} />
       ))}
-      <Mono className="ml-1.5 text-xs text-slate-500">{score}/5</Mono>
+      <Mono className="ml-1.5 text-xs text-slate-500">{score}/10</Mono>
     </div>
   );
 }

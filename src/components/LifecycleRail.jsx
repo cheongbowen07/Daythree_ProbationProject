@@ -1,4 +1,4 @@
-import { CheckCircle2, XCircle } from "lucide-react";
+import { CheckCircle2 } from "lucide-react";
 import { getStages, currentStageKey } from "../utils/lifecycle";
 
 export default function LifecycleRail({ rec }) {
@@ -6,14 +6,13 @@ export default function LifecycleRail({ rec }) {
   const curKey = currentStageKey(rec);
   const curIdx = stages.findIndex((s) => s.key === curKey);
   const done       = rec.status === "Complete-Conf" || rec.status === "Complete-NConf";
-  const terminated = rec.status === "Terminated";
 
   return (
-    <div className="overflow-x-auto pb-2">
-      <div className="flex items-stretch min-w-max">
+    <div className="pb-2">
+      <div className="flex flex-wrap items-start gap-y-3">
         {stages.map((s, i) => {
-          const past   = terminated ? false : i < curIdx || done;
-          const isCur  = !terminated && i === curIdx && !done;
+          const past   = i < curIdx || done;
+          const isCur  = i === curIdx && !done;
           const future = !past && !isCur;
           return (
             <div key={s.key} className="flex items-center">
@@ -42,11 +41,6 @@ export default function LifecycleRail({ rec }) {
           );
         })}
       </div>
-      {terminated && (
-        <div className="mt-2 text-xs text-rose-600 font-medium flex items-center gap-1.5">
-          <XCircle size={14} /> Probation terminated — lifecycle ended.
-        </div>
-      )}
     </div>
   );
 }

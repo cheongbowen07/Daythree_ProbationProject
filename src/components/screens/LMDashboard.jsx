@@ -1,24 +1,34 @@
 import { useState } from "react";
-import { Search, Bell, Users, ClipboardList, CheckCircle2, ChevronRight, AlertTriangle, Plus, UserPlus } from "lucide-react";
+import { Search, Bell, Users, ClipboardList, CheckCircle2, ChevronRight } from "lucide-react";
 import { LM_SELF } from "../../constants";
-import { isActiveProbation, pendingFor } from "../../utils/status";
+import { isActiveProbation, pendingFor, statusRank, defaultRowOrder } from "../../utils/status";
 import { daysCap, totalCycles } from "../../utils/lifecycle";
-import { Card, StatusBadge, Tag, PageHead, Mono, Stat, Btn } from "../ui";
-import DRListEscalateModal from "../modals/DRListEscalateModal";
-import InitiateModal from "../modals/InitiateModal";
+import { Card, StatusBadge, Tag, PageHead, Mono, Stat, SortTh } from "../ui";
+import { useSort } from "../../utils/useSort";
 
-export default function LMDashboard({ records, onOpen, onDRListEscalate, onAdd }) {
+export default function LMDashboard({ records, onOpen }) {
   const [q, setQ]           = useState("");
   const [tab, setTab]       = useState("all");
-  const [showEscalate, setShowEscalate] = useState(false);
-  const [addOpen, setAddOpen]           = useState(false);
-  const [addWf, setAddWf]               = useState("WF1");
+
+  const { sort, toggle, sortRows } = useSort({
+    name:        (r) => r.name,
+    type:        (r) => (r.wf === "WF2" ? "Acting" : "New-hire"),
+    actingGrade: (r) => r.acting?.grade,
+    allowance:   (r) => r.acting?.allowance,
+    actingStart: (r) => new Date(r.acting?.start).getTime() || 0,
+    outcome:     (r) => r.outcome,
+    joined:      (r) => new Date(r.joined).getTime() || 0,
+    status:      (r) => statusRank(r.status),
+    daysLeft:    (r) => (isActiveProbation(r.status) ? Math.max(0, daysCap(r) - r.day) : -1),
+    months:      (r) => r.currentCycle || 0,
+  }, defaultRowOrder("LM"));
 
   const team     = records.filter((r) => r.lm === LM_SELF);
   const normal   = team.filter((r) => r.wf !== "WF2");
   const acting   = team.filter((r) => r.wf === "WF2");
   const view     = tab === "normal" ? normal : tab === "acting" ? acting : team;
-  const filtered = view.filter((r) => (r.name + r.empId).toLowerCase().includes(q.toLowerCase()));
+  const searched = view.filter((r) => (r.name + r.empId).toLowerCase().includes(q.toLowerCase()));
+  const filtered = sortRows(searched);
   const pending  = team.filter((r) => pendingFor(r, "LM")).length;
 
   return (
@@ -27,13 +37,6 @@ export default function LMDashboard({ records, onOpen, onDRListEscalate, onAdd }
         code="S-01 · MyTeamProb"
         title="My Team Probation"
         sub={`${LM_SELF} · ${team.length} direct reports. Scope is enforced by A-08 — managers see only their own team.`}
-        right={
-          <div className="flex items-center gap-2">
-            <Btn size="sm" icon={Plus} onClick={() => { setAddWf("WF1"); setAddOpen(true); }}>New-hire (F-01)</Btn>
-            <Btn size="sm" variant="ghost" icon={UserPlus} onClick={() => { setAddWf("WF2"); setAddOpen(true); }} className="text-violet-700 ring-violet-200 hover:bg-violet-50">Acting-role (F-10)</Btn>
-            <Btn variant="ghost" size="sm" icon={AlertTriangle} onClick={() => setShowEscalate(true)} className="text-amber-600 ring-amber-200 hover:bg-amber-50">Report inaccuracy</Btn>
-          </div>
-        }
       />
 
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-5">
@@ -47,7 +50,7 @@ export default function LMDashboard({ records, onOpen, onDRListEscalate, onAdd }
       <div className="flex gap-1 mb-4 border-b border-slate-200">
         {[
           ["all", "All probations", `S-01`],
-          ["normal", "Normal probation", `${normal.length}`],
+          ["normal", "New Hire", `${normal.length}`],
           ["acting", `Acting-role (WF2) · S-11`, `${acting.length}`],
         ].map(([key, label, badge]) => (
           <button key={key} onClick={() => setTab(key)}
@@ -67,16 +70,14 @@ export default function LMDashboard({ records, onOpen, onDRListEscalate, onAdd }
           <table className="w-full text-sm">
             <thead className="sticky top-0 z-10 bg-white">
               <tr className="text-left text-[11px] uppercase tracking-wider text-slate-400 border-b border-slate-100">
-                <th className="px-4 py-2.5 font-medium">Employee</th>
-                <th className="px-4 py-2.5 font-medium">Grade</th>
+                <SortTh label="Employee" sortKey="name" sort={sort} onSort={toggle} />
                 {tab === "acting"
-                  ? <><th className="px-4 py-2.5 font-medium">Acting grade</th><th className="px-4 py-2.5 font-medium">Allowance</th><th className="px-4 py-2.5 font-medium">Acting since</th><th className="px-4 py-2.5 font-medium">Outcome</th></>
-                  : <th className="px-4 py-2.5 font-medium">Type</th>}
-                <th className="px-4 py-2.5 font-medium">Start date</th>
-                <th className="px-4 py-2.5 font-medium">Status</th>
-                <th className="px-4 py-2.5 font-medium">Days remaining</th>
-                <th className="px-4 py-2.5 font-medium">Months</th>
-                <th className="px-4 py-2.5 font-medium">Owner</th>
+                  ? <><SortTh label="Acting grade" sortKey="actingGrade" sort={sort} onSort={toggle} /><SortTh label="Allowance" sortKey="allowance" sort={sort} onSort={toggle} /><SortTh label="Acting since" sortKey="actingStart" sort={sort} onSort={toggle} /><SortTh label="Outcome" sortKey="outcome" sort={sort} onSort={toggle} /></>
+                  : <SortTh label="Type" sortKey="type" sort={sort} onSort={toggle} />}
+                <SortTh label="Start date" sortKey="joined" sort={sort} onSort={toggle} />
+                <SortTh label="Status" sortKey="status" sort={sort} onSort={toggle} />
+                <SortTh label="Days remaining" sortKey="daysLeft" sort={sort} onSort={toggle} />
+                <SortTh label="Months" sortKey="months" sort={sort} onSort={toggle} />
                 <th className="px-4 py-2.5 font-medium text-right">Action</th>
               </tr>
             </thead>
@@ -91,7 +92,6 @@ export default function LMDashboard({ records, onOpen, onDRListEscalate, onAdd }
                       </div>
                       <Mono className="text-[11px] text-slate-400">{r.empId}</Mono>
                     </td>
-                    <td className="px-4 py-3"><Tag className="bg-slate-100 text-slate-600">{r.grade}</Tag></td>
                     {tab === "acting"
                       ? <>
                           <td className="px-4 py-3"><Tag className="bg-violet-50 text-violet-700">{r.acting?.grade || "—"}</Tag></td>
@@ -110,7 +110,6 @@ export default function LMDashboard({ records, onOpen, onDRListEscalate, onAdd }
                     <td className="px-4 py-3">
                       <Mono className="text-xs text-slate-500">{r.currentCycle || 0}/{totalCycles(r)}</Mono>
                     </td>
-                    <td className="px-4 py-3 text-xs text-slate-500 whitespace-nowrap">{r.lm}</td>
                     <td className="px-4 py-3 text-right">
                       <span className={`inline-flex items-center gap-1 text-xs font-medium ${due ? "text-cyan-700" : "text-slate-400"}`}>
                         {due ? "Action due" : "View"} <ChevronRight size={14} />
@@ -123,23 +122,6 @@ export default function LMDashboard({ records, onOpen, onDRListEscalate, onAdd }
           </table>
         </div>
       </Card>
-
-      {addOpen && (
-        <InitiateModal
-          defaultWf={addWf}
-          existingRecords={records}
-          onClose={() => setAddOpen(false)}
-          onAdd={(r) => { onAdd?.(r); setAddOpen(false); }}
-        />
-      )}
-
-      {showEscalate && (
-        <DRListEscalateModal
-          lmName={LM_SELF}
-          onClose={() => setShowEscalate(false)}
-          onSubmit={(type, ref, desc) => { onDRListEscalate(type, ref, desc); setShowEscalate(false); }}
-        />
-      )}
     </div>
   );
 }

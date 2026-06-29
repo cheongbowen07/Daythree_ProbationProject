@@ -1,8 +1,9 @@
 import { useState } from "react";
 import { Users, CheckCircle2, Clock, Bell, ChevronRight, Lock } from "lucide-react";
 import { HOD_DEPT, HOD_SELF, EVENT_META } from "../../constants";
-import { isActiveProbation } from "../../utils/status";
-import { Card, PageHead, StatusBadge, Tag, Mono, Stat } from "../ui";
+import { isActiveProbation, statusRank, defaultRowOrder } from "../../utils/status";
+import { Card, PageHead, StatusBadge, Tag, Mono, Stat, SortTh } from "../ui";
+import { useSort } from "../../utils/useSort";
 
 const STATUS_LABELS = {
   "LM-Outcome": "Outcome pending LM",
@@ -13,6 +14,14 @@ const STATUS_LABELS = {
 export default function HODPipeline({ records, audit, view }) {
   const dept    = records.filter((r) => r.dept === HOD_DEPT);
   const [q, setQ] = useState("");
+
+  const { sort, toggle, sortRows } = useSort({
+    name:      (r) => r.name,
+    grade:     (r) => r.grade,
+    type:      (r) => (r.wf === "WF2" ? "Acting" : "New-hire"),
+    status:    (r) => statusRank(r.status),
+    empStatus: (r) => r.employmentStatus,
+  }, defaultRowOrder("HOD"));
 
   const filtered = dept.filter((r) =>
     (r.name + r.empId + r.lm + r.status).toLowerCase().includes(q.toLowerCase())
@@ -96,7 +105,7 @@ export default function HODPipeline({ records, audit, view }) {
 
       <div className="space-y-4">
         {lms.map((lm) => {
-          const lmRecs = filtered.filter((r) => r.lm === lm);
+          const lmRecs = sortRows(filtered.filter((r) => r.lm === lm));
           if (!lmRecs.length) return null;
           return (
             <div key={lm}>
@@ -109,11 +118,11 @@ export default function HODPipeline({ records, audit, view }) {
                   <table className="w-full text-sm">
                     <thead>
                       <tr className="text-left text-[11px] uppercase tracking-wider text-slate-400 border-b border-slate-100">
-                        <th className="px-4 py-2.5 font-medium">Employee</th>
-                        <th className="px-4 py-2.5 font-medium">Grade</th>
-                        <th className="px-4 py-2.5 font-medium">Type</th>
-                        <th className="px-4 py-2.5 font-medium">Status</th>
-                        <th className="px-4 py-2.5 font-medium">Emp. Status</th>
+                        <SortTh label="Employee" sortKey="name" sort={sort} onSort={toggle} />
+                        <SortTh label="Grade" sortKey="grade" sort={sort} onSort={toggle} />
+                        <SortTh label="Type" sortKey="type" sort={sort} onSort={toggle} />
+                        <SortTh label="Status" sortKey="status" sort={sort} onSort={toggle} />
+                        <SortTh label="Emp. Status" sortKey="empStatus" sort={sort} onSort={toggle} />
                       </tr>
                     </thead>
                     <tbody>

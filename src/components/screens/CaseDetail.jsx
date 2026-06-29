@@ -1,15 +1,13 @@
 import { useState } from "react";
-import { ChevronRight, ChevronDown, ClipboardList, PenLine, Bell, FileSignature, Send, Inbox, XCircle, Lock, Gavel, UserCog, Edit2, ShieldCheck } from "lucide-react";
+import { ChevronRight, ChevronDown, ClipboardList, PenLine, Bell, FileSignature, Send, XCircle, Lock, Gavel, UserCog, Edit2, ShieldCheck } from "lucide-react";
 import { TODAY, TONE_CLASS, OUTCOME_LABEL } from "../../constants";
 import { monthFromStatus, isActiveProbation } from "../../utils/status";
-import { totalCycles, daysCap, outcomeOptions } from "../../utils/lifecycle";
-import { kpisForCycle } from "../../utils/kpi";
+import { totalCycles, daysCap, outcomeOptions, extensionCycles, sortedReviews, reviewLabel, reviewKey } from "../../utils/lifecycle";
+import { kpisForCycle, kpiTargetLabel, kpiAchievementPct, RPM_MEETS } from "../../utils/kpi";
 import { Card, Btn, StatusBadge, Tag, Mono, RpmDots } from "../ui";
 import LifecycleRail from "../LifecycleRail";
 import KpiModal from "../modals/KpiModal";
 import ReviewModal from "../modals/ReviewModal";
-import EscalateModal from "../modals/EscalateModal";
-import TerminateModal from "../modals/TerminateModal";
 import EarlyConfModal from "../modals/EarlyConfModal";
 import EmployeeProfile from "../EmployeeProfile";
 import ReassignLMModal from "../modals/ReassignLMModal";
@@ -89,7 +87,7 @@ function LmOutcomePanel({ rec, onSetOutcome }) {
           <div className="text-[11px] uppercase tracking-wider text-slate-400 mb-1">Selected outcome</div>
           <p className="font-medium text-slate-800">{selOpt[1]} · {selOpt[2]}</p>
           {sel === "NConf" && <p className="mt-1.5 text-xs text-rose-600">HRBP will obtain mandatory legal review before generating the Non-Confirmation letter.</p>}
-          {sel === "Ext"   && <p className="mt-1.5 text-xs text-amber-600">A single 3-month extension cycle will begin after signing.</p>}
+          {sel === "Ext"   && <p className="mt-1.5 text-xs text-amber-600">A single {extensionCycles(rec)}-month extension cycle will begin after signing.</p>}
         </div>
       )}
       <Btn icon={Send} disabled={!sel} onClick={() => onSetOutcome(rec.id, sel)}>
@@ -146,9 +144,9 @@ function LetterGenPanel({ rec, onGenerate }) {
         <div className="mb-4 rounded-lg ring-1 ring-slate-100 p-3">
           <div className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-2">Review summary</div>
           <div className="space-y-1.5">
-            {[...rec.reviews].sort((a, b) => a.cycle - b.cycle).map((rv) => (
-              <div key={rv.cycle} className="flex items-center gap-3 text-xs">
-                <Tag className="bg-slate-100 text-slate-600 shrink-0">Month {rv.cycle}</Tag>
+            {sortedReviews(rec.reviews).map((rv) => (
+              <div key={reviewKey(rv)} className="flex items-center gap-3 text-xs">
+                <Tag className="bg-slate-100 text-slate-600 shrink-0">{reviewLabel(rv)}</Tag>
                 <RpmDots score={rv.rpm} />
                 {rv.recmd && <span className="text-slate-500">{rv.recmd}</span>}
                 {rv.rec && <span className="text-slate-400 truncate">{rv.rec}</span>}
@@ -173,7 +171,7 @@ function LetterGenPanel({ rec, onGenerate }) {
       <div className="mb-4 rounded-lg ring-1 ring-slate-200 bg-slate-50 p-4 text-sm text-slate-600 leading-relaxed">
         <div className="text-[11px] uppercase tracking-wider text-slate-400 mb-2">Letter preview · {selOpt[2]}</div>
         <p><span className="text-slate-400">Re:</span> Probation Outcome — <span className="font-medium text-slate-800">{selOpt[1]}</span></p>
-        <p className="mt-1.5">Dear {rec.name} ({rec.empId}), following completion of your {rec.gradeBand === "M09_M12" ? "6-month" : "3-month"} probation review cycle{rec.acting ? " in your acting role" : ""}, we confirm the outcome above, effective {TODAY}. {outcome === "Ext" && "Your probation is extended by one fixed 3-month cycle. "}{outcome === "ActingConf" && "Rewards will action your salary review and new-role benefits. "}{outcome === "ActingNConf" && "You will revert to your previous role and the acting allowance will stop immediately. "}</p>
+        <p className="mt-1.5">Dear {rec.name} ({rec.empId}), following completion of your {rec.gradeBand === "M09_M12" ? "6-month" : "3-month"} probation review cycle{rec.acting ? " in your acting role" : ""}, we confirm the outcome above, effective {TODAY}. {outcome === "Ext" && `Your probation is extended by one fixed ${extensionCycles(rec)}-month cycle. `}{outcome === "ActingConf" && "Rewards will action your salary review and new-role benefits. "}{outcome === "ActingNConf" && "You will revert to your previous role and the acting allowance will stop immediately. "}</p>
         <p className="mt-1.5 text-slate-400 text-xs">Merge fields populated from Employee Profile · signed copy stored in FAITH document library.</p>
       </div>
 
@@ -253,11 +251,11 @@ function EarlyConfApprovalPanel({ rec, onApproveEarlyConf }) {
   return (
     <Card className="p-5">
       <div className="flex items-center gap-2 mb-1">
-        <span className="font-semibold text-slate-800">Approve early confirmation request</span>
+        <span className="font-semibold text-slate-800">Approve early confirmation recommendation</span>
         <Mono className="text-[10px] text-slate-400">F-07 · LT-04</Mono>
       </div>
       <p className="text-sm text-slate-500 mb-4">
-        {rec.lm} has requested early confirmation. HRBP approval is required before LT-04 can be generated and sent for acknowledgement.
+        {rec.lm} has recommended early confirmation. HRBP approval is required before LT-04 can be generated and sent for acknowledgement.
       </p>
       <div className="rounded-lg ring-1 ring-slate-200 bg-slate-50 p-4 mb-4 text-sm">
         <div className="grid sm:grid-cols-2 gap-3 mb-3">
@@ -295,33 +293,40 @@ function ReviewRow({ rv, kpis, role }) {
             {open ? <ChevronDown size={13} /> : <ChevronRight size={13} />}
           </span>
         )}
-        <Tag className="bg-slate-100 text-slate-600 shrink-0">Month {rv.cycle}</Tag>
+        <Tag className="bg-slate-100 text-slate-600 shrink-0">{reviewLabel(rv)}</Tag>
         <RpmDots score={rv.rpm} />
-        <span className={`text-xs font-medium ${rv.rpm >= 3 ? "text-emerald-600" : "text-rose-600"}`}>
-          {rv.rpm >= 3 ? "Meets expectations" : "Below threshold"}
+        <span className={`text-xs font-medium ${rv.rpm >= RPM_MEETS ? "text-emerald-600" : "text-rose-600"}`}>
+          {rv.rpm >= RPM_MEETS ? "Meets expectations" : "Below threshold"}
         </span>
         {rv.rec && <span className="text-xs text-slate-400 truncate ml-auto max-w-[200px]">{rv.rec}</span>}
       </div>
       {canExpand && open && kpis.length > 0 && (
         <div className="mx-2 mb-2 mt-1 rounded-lg bg-slate-50 ring-1 ring-slate-100 p-3 space-y-2">
           <div className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1">KPIs assessed this cycle</div>
-          {kpis.map((k, i) => (
-            <div key={i} className="flex items-start justify-between gap-3">
-              <div className="flex-1 min-w-0">
-                <div className="text-xs font-medium text-slate-700">{k.name}</div>
-                <div className="text-[11px] text-slate-400 mt-0.5">{k.target}</div>
+          {kpis.map((k, i) => {
+            const hasActual = k.actual != null && Number(k.target) > 0;
+            const pct = Math.round(kpiAchievementPct(k));
+            return (
+              <div key={i} className="flex items-start justify-between gap-3">
+                <div className="flex-1 min-w-0">
+                  <div className="text-xs font-medium text-slate-700">{k.name}</div>
+                  <div className="text-[11px] text-slate-400 mt-0.5">
+                    {hasActual ? <>{k.actual} / {kpiTargetLabel(k)} · <span className={pct >= 60 ? "text-emerald-600" : "text-amber-600"}>{pct}%</span></> : kpiTargetLabel(k)}
+                  </div>
+                </div>
+                <Tag className="bg-cyan-50 text-cyan-700 shrink-0 text-[11px]">{k.weight}%</Tag>
               </div>
-              <Tag className="bg-cyan-50 text-cyan-700 shrink-0 text-[11px]">{k.weight}%</Tag>
-            </div>
-          ))}
+            );
+          })}
         </div>
       )}
     </div>
   );
 }
 
-export default function CaseDetail({ rec, role, onBack, onSubmitReview, onSaveReviewDraft, onEscalate, onTerminate, onSaveKpis, onRequestKpiUnlock, onGenerate, onSetOutcome, onHrbpAck, onReassignLM, onApproveKpiUnlock, onEarlyConf, onApproveEarlyConf, allRecords = [], flash }) {
+export default function CaseDetail({ rec, role, onBack, onSubmitReview, onSaveReviewDraft, onEscalate, onSaveKpis, onRequestKpiUnlock, onGenerate, onSetOutcome, onHrbpAck, onReassignLM, onApproveKpiUnlock, onEarlyConf, onApproveEarlyConf, allRecords = [], flash }) {
   const [modal, setModal] = useState(null);
+  const [subPage, setSubPage] = useState(null); // "kpi" | "review" — full-page forms
   const lmOptions = [...new Set(allRecords.map((r) => r.lm))].sort();
   const n = monthFromStatus(rec.status);
   const lmReviewDue  = role === "LM"   && !!n && /-Review$/.test(rec.status);
@@ -330,9 +335,68 @@ export default function CaseDetail({ rec, role, onBack, onSubmitReview, onSaveRe
   const hrbpAckDue   = role === "HRBP" && HRBP_ACK_STATUSES.includes(rec.status);
   const letterDue    = role === "HRBP" && LETTER_DUE_STATUSES.includes(rec.status);
   const earlyConfApprovalDue = role === "HRBP" && rec.earlyConfRequest?.status === "Pending";
-  const canTerminate    = role === "LM" && isActiveProbation(rec.status);
   const earlyConfVisible = role === "LM" && rec.wf === "WF1" && /Mth[1-6]/.test(rec.status);
   const earlyConf        = earlyConfVisible && rec.gradeBand === "M09_M12" && /Mth[3-6]/.test(rec.status);
+
+  // Review history card — placed in the right sidebar for HRBP, left column otherwise.
+  const reviewHistoryCard = (
+    <Card className="p-4">
+      <div className="flex items-center justify-between mb-3">
+        <div className="text-sm font-semibold text-slate-800 flex items-center gap-2"><ClipboardList size={16} /> Review history</div>
+        {role === "LM" && rec.kpis.length > 0 && kpiDue && (
+          <Btn size="sm" variant="ghost" icon={Edit2} onClick={() => setSubPage("kpi")} className="text-xs -my-1 -mr-1">
+            Edit KPIs
+          </Btn>
+        )}
+      </div>
+      {rec.reviews.length === 0
+        ? <p className="text-sm text-slate-400">No reviews submitted yet.</p>
+        : (() => {
+            const all  = sortedReviews(rec.reviews);
+            const base = all.filter((rv) => rv.phase !== "EXT");
+            const ext  = all.filter((rv) => rv.phase === "EXT");
+            const row  = (rv) => <ReviewRow key={reviewKey(rv)} rv={rv} kpis={rv.kpisSnapshot || kpisForCycle(rec, rv.cycle)} role={role} />;
+            if (ext.length === 0) return <div className="space-y-1">{all.map(row)}</div>;
+            return (
+              <div className="space-y-4">
+                <div>
+                  <div className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">Probation</div>
+                  <div className="space-y-1">{base.map(row)}</div>
+                </div>
+                <div>
+                  <div className="text-[10px] font-bold text-orange-500 uppercase tracking-widest mb-1">Extension</div>
+                  <div className="space-y-1">{ext.map(row)}</div>
+                </div>
+              </div>
+            );
+          })()}
+    </Card>
+  );
+
+  // Full-page forms (Option A) — render in place of the case detail.
+  if (subPage === "kpi") {
+    return (
+      <KpiModal
+        page
+        rec={rec}
+        onClose={() => setSubPage(null)}
+        onSave={(k, cycle) => { onSaveKpis(rec.id, k, cycle); setSubPage(null); }}
+        onRequestUnlock={onRequestKpiUnlock}
+      />
+    );
+  }
+  if (subPage === "review") {
+    return (
+      <ReviewModal
+        page
+        rec={rec}
+        month={n}
+        onClose={() => setSubPage(null)}
+        onSaveDraft={(draft) => onSaveReviewDraft?.(rec.id, n, draft)}
+        onSubmit={(rpm, t, extra) => { onSubmitReview(rec.id, rpm, t, extra); setSubPage(null); }}
+      />
+    );
+  }
 
   return (
     <div className="fadeUp">
@@ -379,12 +443,12 @@ export default function CaseDetail({ rec, role, onBack, onSubmitReview, onSaveRe
         <div className="lg:col-span-2 space-y-4">
           {kpiDue && (
             <ActionPanel code="S-02 / F-02" title="Set KPIs & targets" tone="kpi" desc="KPIs are mandatory before the first review cycle and are visible to the direct report.">
-              <Btn icon={ClipboardList} onClick={() => setModal("kpi")}>{rec.kpis.length ? "Edit KPIs" : "Set KPIs"}</Btn>
+              <Btn icon={ClipboardList} onClick={() => setSubPage("kpi")}>{rec.kpis.length ? "Edit KPIs" : "Set KPIs"}</Btn>
             </ActionPanel>
           )}
           {lmReviewDue && (
-            <ActionPanel code="S-03 / F-03" title={`Submit Month ${n} review`} tone="review" desc="Score RPM 1–5 (≥3 meets expectations). You may update this month's KPI targets before submitting the review.">
-              <Btn icon={PenLine} onClick={() => setModal("review")}>Submit Month {n} review</Btn>
+            <ActionPanel code="S-03 / F-03" title={`Submit Month ${n} review`} tone="review" desc="Record the DR's actual achievement against each KPI target — RPM (1–10, ≥6 meets expectations) is calculated automatically.">
+              <Btn icon={PenLine} onClick={() => setSubPage("review")}>Submit Month {n} review</Btn>
             </ActionPanel>
           )}
           {lmOutcomeDue && <LmOutcomePanel rec={rec} onSetOutcome={onSetOutcome} />}
@@ -402,36 +466,33 @@ export default function CaseDetail({ rec, role, onBack, onSubmitReview, onSaveRe
             </Card>
           )}
 
-          <Card className="p-4">
-            <div className="flex items-center justify-between mb-3">
-              <div className="text-sm font-semibold text-slate-800 flex items-center gap-2"><ClipboardList size={16} /> Review history</div>
-              {role === "LM" && rec.kpis.length > 0 && kpiDue && (
-                <Btn size="sm" variant="ghost" icon={Edit2} onClick={() => setModal("kpi")} className="text-xs -my-1 -mr-1">
-                  Edit KPIs
-                </Btn>
-              )}
-            </div>
-            {rec.reviews.length === 0
-              ? <p className="text-sm text-slate-400">No reviews submitted yet.</p>
-              : (
-                <div className="space-y-1">
-                  {[...rec.reviews].sort((a, b) => a.cycle - b.cycle).map((rv) => (
-                    <ReviewRow key={rv.cycle} rv={rv} kpis={rv.kpisSnapshot || kpisForCycle(rec, rv.cycle)} role={role} />
-                  ))}
-                </div>
-              )}
-          </Card>
+          {role !== "HRBP" && reviewHistoryCard}
 
           {rec.completion && <CompletionRecord rec={rec} />}
         </div>
 
         <div className="space-y-3">
-          <EmployeeProfile rec={rec} editable={false} compact />
+          <EmployeeProfile
+            rec={rec}
+            editable={false}
+            compact
+            showContact={false}
+            showReviewHistory={false}
+            showCompliance={role !== "LM"}
+          />
+
+          {role === "HRBP" && reviewHistoryCard}
 
 
-          {(canTerminate || earlyConfVisible) && (
+          {role === "LM" && isActiveProbation(rec.status) && (
             <Card className="p-3 space-y-1.5">
               <div className="text-[10px] uppercase tracking-wider text-slate-400 font-medium mb-1">Manager actions</div>
+
+              {!kpiDue && rec.kpis?.length > 0 && (
+                <Btn variant="soft" size="sm" icon={ClipboardList} className="w-full" onClick={() => setSubPage("kpi")}>
+                  Edit Monthly KPI target (F-02)
+                </Btn>
+              )}
 
               {earlyConfVisible && (
                 <div className="relative group">
@@ -443,7 +504,7 @@ export default function CaseDetail({ rec, role, onBack, onSubmitReview, onSaveRe
                     className={`w-full ${!earlyConf ? "opacity-40 cursor-not-allowed" : ""}`}
                     onClick={() => earlyConf && setModal("earlyconf")}
                   >
-                    Request early confirmation (F-07)
+                    Recommend early confirmation (F-07)
                   </Btn>
                   {!earlyConf && (
                     <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 w-64 z-20 hidden group-hover:block pointer-events-none">
@@ -457,22 +518,11 @@ export default function CaseDetail({ rec, role, onBack, onSubmitReview, onSaveRe
                   )}
                 </div>
               )}
-
-              <Btn variant="ghost" size="sm" icon={Inbox} className="w-full" onClick={() => setModal("escalate")}>Report inaccuracy (F-06)</Btn>
-              {canTerminate && (
-                <Btn variant="ghost" size="sm" icon={XCircle} className="w-full text-rose-600 ring-rose-200 hover:bg-rose-50" onClick={() => setModal("terminate")}>
-                  Early termination (F-11)
-                </Btn>
-              )}
             </Card>
           )}
         </div>
       </div>
 
-      {modal === "kpi"       && <KpiModal      rec={rec} onClose={() => setModal(null)} onSave={(k, cycle) => { onSaveKpis(rec.id, k, cycle); setModal(null); }} onRequestUnlock={onRequestKpiUnlock} />}
-      {modal === "review"    && <ReviewModal   rec={rec} month={n} onClose={() => setModal(null)} onSaveDraft={(draft) => { onSaveReviewDraft?.(rec.id, n, draft); setModal(null); }} onSubmit={(rpm, t, extra) => { onSubmitReview(rec.id, rpm, t, extra); setModal(null); }} />}
-      {modal === "escalate"  && <EscalateModal onClose={() => setModal(null)} onSubmit={(i, d) => { onEscalate(rec.id, i, d); setModal(null); }} />}
-      {modal === "terminate"  && <TerminateModal  onClose={() => setModal(null)} onSubmit={(r, m) => { onTerminate(rec.id, r, m); setModal(null); }} />}
       {modal === "earlyconf"  && <EarlyConfModal  rec={rec} onClose={() => setModal(null)} onSubmit={(id, just, date) => { onEarlyConf?.(id, just, date); setModal(null); }} />}
       {modal === "reassign"  && <ReassignLMModal rec={rec} lmOptions={lmOptions} onClose={() => setModal(null)} onSave={(newLm, reason) => { onReassignLM(rec.id, newLm, reason); setModal(null); }} />}
     </div>

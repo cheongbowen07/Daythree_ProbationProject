@@ -1,8 +1,9 @@
 import { useState } from "react";
 import { Users, FileText, AlertTriangle, PenLine, ChevronRight, Plus, BarChart2, Filter } from "lucide-react";
 import { daysCap } from "../../utils/lifecycle";
-import { isActiveProbation, statusLabel } from "../../utils/status";
-import { Card, PageHead, StatusBadge, Tag, Mono, Stat, Btn } from "../ui";
+import { isActiveProbation, statusLabel, statusRank, defaultRowOrder } from "../../utils/status";
+import { Card, PageHead, StatusBadge, Tag, Mono, Stat, Btn, SortTh } from "../ui";
+import { useSort } from "../../utils/useSort";
 import InitiateModal from "../modals/InitiateModal";
 
 export default function HRBPPipeline({ records, onOpen, onAdd, onReports }) {
@@ -26,7 +27,16 @@ export default function HRBPPipeline({ records, onOpen, onAdd, onReports }) {
   });
   const statusOptions = [...new Set(tabRecords.map((r) => r.status))]
     .sort((a, b) => statusLabel(a).localeCompare(statusLabel(b)));
-  const f = tabRecords.filter((r) => statusFilter === "all" || r.status === statusFilter);
+
+  const { sort, toggle, sortRows } = useSort({
+    name:   (r) => r.name,
+    lm:     (r) => r.lm,
+    status: (r) => statusRank(r.status),
+    day:    (r) => r.day,
+    sla:    (r) => (r.slaBreached ? Infinity : r.status.includes("Pending-Letter") ? (r.slaDays || 0) : -1),
+  }, defaultRowOrder("HRBP"));
+
+  const f = sortRows(tabRecords.filter((r) => statusFilter === "all" || r.status === statusFilter));
 
   return (
     <div className="fadeUp">
@@ -75,12 +85,11 @@ export default function HRBPPipeline({ records, onOpen, onAdd, onReports }) {
           <table className="w-full text-sm">
             <thead>
               <tr className="text-left text-[11px] uppercase tracking-wider text-slate-400 border-b border-slate-100">
-                <th className="px-4 py-2.5 font-medium">Employee</th>
-                <th className="px-4 py-2.5 font-medium">LM</th>
-                <th className="px-4 py-2.5 font-medium">Grade</th>
-                <th className="px-4 py-2.5 font-medium">Status</th>
-                <th className="px-4 py-2.5 font-medium">Day</th>
-                <th className="px-4 py-2.5 font-medium">SLA</th>
+                <SortTh label="Employee" sortKey="name" sort={sort} onSort={toggle} />
+                <SortTh label="LM" sortKey="lm" sort={sort} onSort={toggle} />
+                <SortTh label="Status" sortKey="status" sort={sort} onSort={toggle} />
+                <SortTh label="Day" sortKey="day" sort={sort} onSort={toggle} />
+                <SortTh label="SLA" sortKey="sla" sort={sort} onSort={toggle} />
                 <th className="px-4 py-2.5 font-medium text-right">Action</th>
               </tr>
             </thead>
@@ -98,10 +107,9 @@ export default function HRBPPipeline({ records, onOpen, onAdd, onReports }) {
                       <Mono className="text-[11px] text-slate-400">{r.empId}</Mono>
                     </td>
                     <td className="px-4 py-3 text-slate-500">{r.lm}</td>
-                    <td className="px-4 py-3"><Tag className="bg-slate-100 text-slate-600">{r.grade}</Tag></td>
                     <td className="px-4 py-3">
                       <StatusBadge status={r.status} sm />
-                      {earlyConfDue && <div className="text-[10px] text-amber-600 mt-0.5">Early confirmation request</div>}
+                      {earlyConfDue && <div className="text-[10px] text-amber-600 mt-0.5">Early confirmation recommendation</div>}
                       {ackDue && r.outcome && <div className="text-[10px] text-amber-600 mt-0.5">LM: {r.outcome}</div>}
                     </td>
                     <td className="px-4 py-3">

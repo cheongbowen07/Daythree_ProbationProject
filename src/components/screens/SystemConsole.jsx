@@ -84,7 +84,7 @@ function AutomationCard({ def, config, onPatch, records, readOnly }) {
     scheduler:  records.filter((r) => r.status === "KPI-Review" && r.kpis.length).length,
     autoAccept: records.filter((r) => /-DR-Acpt$/.test(r.status)).length,
     slaCheck:   records.filter((r) => r.status.includes("Pending-Letter") && (r.slaDays || 0) >= config.slaDays && !r.slaBreached).length,
-    dayCheck:   records.filter((r) => r.gradeBand === "E08_below" && r.day >= config.dayThreshold && !r.day91Breached && !r.status.startsWith("Complete-") && r.status !== "Terminated").length,
+    dayCheck:   records.filter((r) => r.gradeBand === "E08_below" && r.day >= config.dayThreshold && !r.day91Breached && !r.status.startsWith("Complete-")).length,
   };
   const count = counts[def.key];
 

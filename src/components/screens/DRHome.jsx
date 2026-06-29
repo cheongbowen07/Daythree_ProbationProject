@@ -3,7 +3,8 @@ import { ChevronDown, PenLine, CheckCircle2, Clock, FileSignature, Bell, AlertTr
 import { TODAY, TONE_CLASS, OUTCOME_LABEL } from "../../constants";
 import EmployeeProfile from "../EmployeeProfile";
 import { monthFromStatus } from "../../utils/status";
-import { kpisForCycle } from "../../utils/kpi";
+import { sortedReviews, reviewLabel, reviewKey, extensionCycles } from "../../utils/lifecycle";
+import { kpisForCycle, kpiTargetLabel } from "../../utils/kpi";
 import { Card, Btn, StatusBadge, Tag, Mono, RpmDots } from "../ui";
 import LifecycleRail from "../LifecycleRail";
 
@@ -48,9 +49,9 @@ function ReminderBanner({ reminders }) {
 }
 
 function DRAcceptPanel({ rec, onAccept }) {
-  const n  = monthFromStatus(rec.status);
-  const rv = rec.reviews.find((v) => v.cycle === n);
-  const [drComments, setDrComments] = useState("");
+  const n   = monthFromStatus(rec.status);
+  const ext = rec.phase === "EXT";
+  const rv  = rec.reviews.find((v) => v.cycle === n && (v.phase === "EXT") === ext);
 
   return (
     <div className="p-5 rounded-lg ring-1 brand-card bg-white">
@@ -65,7 +66,7 @@ function DRAcceptPanel({ rec, onAccept }) {
       <div className="rounded-lg ring-1 ring-slate-200 bg-slate-50 p-4 mb-3">
         <div className="flex items-center justify-between mb-2">
           <span className="text-sm font-medium text-slate-700">Manager assessment</span>
-          <RpmDots score={rv ? rv.rpm : 3} />
+          <RpmDots score={rv ? rv.rpm : 6} />
         </div>
         {rv?.kpisChanged && (
           <div className="mb-3 rounded-lg bg-cyan-50 ring-1 ring-cyan-100 px-3 py-2 text-xs text-cyan-800">
@@ -73,25 +74,10 @@ function DRAcceptPanel({ rec, onAccept }) {
           </div>
         )}
         <p className="text-sm text-slate-500">{rv && rv.rec ? rv.rec : "Performance against your KPIs for this cycle."}</p>
-        {rv?.kpiSummary && (
-          <p className="text-xs text-slate-400 mt-2 italic border-t border-slate-100 pt-2">KPI summary: {rv.kpiSummary}</p>
-        )}
       </div>
 
-      {/* Optional DR comments — S-05 */}
-      <div className="mb-4">
-        <label className="text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1 block">Your comments <span className="font-normal normal-case">(optional)</span></label>
-        <textarea
-          value={drComments}
-          onChange={(e) => setDrComments(e.target.value)}
-          rows={2}
-          placeholder="Add any remarks before accepting…"
-          className="w-full bg-slate-50 ring-1 ring-slate-200 rounded-lg px-3 py-2 text-sm outline-none focus:ring-indigo-400 resize-none"
-        />
-      </div>
-
-      <div className="flex items-center gap-3">
-        <Btn icon={CheckCircle2} onClick={() => onAccept(rec.id, rec.name, drComments)}>Accept review</Btn>
+      <div className="flex items-center gap-3 mt-4">
+        <Btn icon={CheckCircle2} onClick={() => onAccept(rec.id, rec.name)}>Accept review</Btn>
         <div className="flex items-center gap-1.5 text-xs text-slate-500">
           <Clock size={13} />
           <span>
@@ -135,7 +121,7 @@ function ESignPanel({ rec, onSign }) {
         <p className="mt-2">This letter confirms the outcome of your {rec.gradeBand === "M09_M12" ? "six-month" : "three-month"} probation period{rec.acting ? " in your acting assignment" : ""}, following completion of all scheduled monthly performance reviews and your acknowledgements.</p>
         <p className="mt-2">Outcome: <span className="font-medium text-slate-800">{outcomeLabel}</span>, effective {TODAY}.</p>
         <p className="mt-2">
-          {rec.outcome === "Ext"        && "Your probation will be extended by a single fixed three-month cycle. A further extension is not available; the subsequent outcome will be confirmation or non-confirmation only."}
+          {rec.outcome === "Ext"        && `Your probation will be extended by a single fixed ${extensionCycles(rec) === 1 ? "one-month" : "three-month"} cycle. A further extension is not available; the subsequent outcome will be confirmation or non-confirmation only.`}
           {rec.outcome === "NConf"      && "Your employment will not be confirmed. Please refer to the notice and final working day clauses below. This outcome has been subject to mandatory legal review."}
           {["Conf", "EarlyConf"].includes(rec.outcome) && "We are pleased to confirm your employment. Your status in FAITH will update automatically upon signing."}
           {rec.outcome === "ActingConf"  && "Your acting role is confirmed. Rewards will action your salary review and new-role benefits."}
@@ -171,7 +157,10 @@ function LetterStatusCard({ rec }) {
       <p className="text-sm text-slate-400">No outcome letter has been generated yet.</p>
     </Card>
   );
-  const signed = rec.status === "Complete-Conf" || rec.status === "Complete-NConf";
+  // A letter counts as signed once its completion record matches the current
+  // letter — this also covers the extension letter (LT-02), which is signed but
+  // leaves the record in Ext-Mth1-Review rather than a terminal Complete-* state.
+  const signed = !!(rec.completion && rec.completion.letterId === rec.letterId);
   return (
     <Card className="p-5">
       <div className="text-sm font-semibold text-slate-800 mb-3">Letter status</div>
@@ -260,14 +249,14 @@ export default function DRHome({ records, asDr, setAsDr, onAccept, onSign, onUpd
           <button key={key} onClick={() => setTab(key)}
             className={`px-4 py-2 text-sm font-medium border-b-2 -mb-px transition whitespace-nowrap ${tab === key ? "border-violet-500 text-violet-700" : "border-transparent text-slate-500 hover:text-slate-700"}`}>
             {label}
-            {key === "letter" && rec.letterId && !(rec.status === "Complete-Conf" || rec.status === "Complete-NConf") && (
+            {key === "letter" && signDue && (
               <span className="ml-1.5 inline-block w-2 h-2 rounded-full bg-amber-400" />
             )}
           </button>
         ))}
       </div>
 
-      {tab === "profile" && <EmployeeProfile rec={rec} editable onSaveProfile={onUpdateProfile} />}
+      {tab === "profile" && <EmployeeProfile rec={rec} editable onSaveProfile={onUpdateProfile} showContact={false} showCompliance={false} showReviewHistory={false} />}
 
       {tab === "overview" && (
         <>
@@ -316,7 +305,7 @@ export default function DRHome({ records, asDr, setAsDr, onAccept, onSign, onUpd
                   <div>
                     <div className="text-sm font-medium text-slate-700">{k.name}</div>
                     {k.desc && <div className="text-xs text-slate-400 mt-0.5">{k.desc}</div>}
-                    {k.target && <div className="text-xs text-slate-500 mt-0.5">Target: {k.target}</div>}
+                    {Number(k.target) > 0 && <div className="text-xs text-slate-500 mt-0.5">Target: {kpiTargetLabel(k)}</div>}
                   </div>
                   <Tag className="bg-cyan-50 text-cyan-700 shrink-0">{k.weight}%</Tag>
                 </div>
@@ -331,28 +320,43 @@ export default function DRHome({ records, asDr, setAsDr, onAccept, onSign, onUpd
       {tab === "history" && (
         <Card className="p-5">
           <div className="text-sm font-semibold text-slate-800 mb-3">Review history</div>
-          {rec.reviews.length > 0 ? (
-            <div className="space-y-3">
-              {[...rec.reviews].sort((a, b) => a.cycle - b.cycle).map((rv) => (
-                <div key={rv.cycle} className="py-2 border-b border-slate-50 last:border-0">
-                  <div className="flex items-center gap-3 mb-1">
-                    <Tag className="bg-slate-100 text-slate-600 shrink-0">Month {rv.cycle}</Tag>
-                    <RpmDots score={rv.rpm} />
-                    {rv.reviewDate && <span className="text-xs text-slate-400 ml-auto">{rv.reviewDate}</span>}
-                  </div>
-                  {rv.rec && <p className="text-xs text-slate-500 mt-1">{rv.rec}</p>}
-                  {rv.kpiSummary && <p className="text-xs text-slate-400 mt-1 italic">KPI summary: {rv.kpiSummary}</p>}
-                  {(rv.kpisSnapshot || kpisForCycle(rec, rv.cycle)).length > 0 && (
-                    <div className="mt-2 flex flex-wrap gap-1.5">
-                      {(rv.kpisSnapshot || kpisForCycle(rec, rv.cycle)).map((k, i) => (
-                        <Tag key={i} className="bg-cyan-50 text-cyan-700">{k.name}</Tag>
-                      ))}
-                    </div>
-                  )}
+          {rec.reviews.length > 0 ? (() => {
+            const all  = sortedReviews(rec.reviews);
+            const base = all.filter((rv) => rv.phase !== "EXT");
+            const ext  = all.filter((rv) => rv.phase === "EXT");
+            const renderRow = (rv) => (
+              <div key={reviewKey(rv)} className="py-2 border-b border-slate-50 last:border-0">
+                <div className="flex items-center gap-3 mb-1">
+                  <Tag className="bg-slate-100 text-slate-600 shrink-0">{reviewLabel(rv)}</Tag>
+                  <RpmDots score={rv.rpm} />
+                  {rv.reviewDate && <span className="text-xs text-slate-400 ml-auto">{rv.reviewDate}</span>}
                 </div>
-              ))}
-            </div>
-          ) : (
+                {rv.rec && <p className="text-xs text-slate-500 mt-1">{rv.rec}</p>}
+                {(rv.kpisSnapshot || kpisForCycle(rec, rv.cycle)).length > 0 && (
+                  <div className="mt-2 flex flex-wrap gap-1.5">
+                    {(rv.kpisSnapshot || kpisForCycle(rec, rv.cycle)).map((k, i) => (
+                      <Tag key={i} className="bg-cyan-50 text-cyan-700">{k.name}</Tag>
+                    ))}
+                  </div>
+                )}
+              </div>
+            );
+            // No extension yet → keep a single flat list.
+            if (ext.length === 0) return <div className="space-y-3">{base.map(renderRow)}</div>;
+            // Extension in progress → group each cycle's months under a heading.
+            return (
+              <div className="space-y-5">
+                <div>
+                  <div className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-2">Probation</div>
+                  <div className="space-y-3">{base.map(renderRow)}</div>
+                </div>
+                <div>
+                  <div className="text-[10px] font-bold text-orange-500 uppercase tracking-widest mb-2">Extension</div>
+                  <div className="space-y-3">{ext.map(renderRow)}</div>
+                </div>
+              </div>
+            );
+          })() : (
             <p className="text-sm text-slate-400">No reviews yet.</p>
           )}
         </Card>

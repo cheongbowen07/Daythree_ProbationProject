@@ -11,7 +11,7 @@ export default function EarlyConfModal({ rec, onClose, onSubmit }) {
   const valid   = justLen >= 50 && effectiveDate;
 
   return (
-    <Modal title="Early confirmation request" code="F-07 · BR-16 · LT-04" onClose={onClose}>
+    <Modal title="Early confirmation recommendation" code="F-07 · BR-16 · LT-04" onClose={onClose}>
       <div className="space-y-4">
         <div className="rounded-lg bg-slate-50 ring-1 ring-slate-200 p-3 text-sm">
           <div className="font-medium text-slate-800 mb-1">{rec.name} · {rec.empId}</div>
@@ -40,13 +40,13 @@ export default function EarlyConfModal({ rec, onClose, onSubmit }) {
         </Field>
 
         <div className="rounded-lg bg-amber-50 ring-1 ring-amber-200 p-3 text-sm text-amber-800">
-          This request will be sent to HRBP for approval. The Line Manager cannot confirm the employee or generate LT-04 directly.
+          This recommendation will be sent to HRBP for approval. The Line Manager cannot confirm the employee or generate LT-04 directly.
         </div>
 
         <div className="flex justify-end gap-2 pt-1">
           <Btn variant="ghost" onClick={onClose}>Cancel</Btn>
           <Btn disabled={!valid} onClick={() => onSubmit(rec.id, justification, effectiveDate)}>
-            Submit request to HRBP
+            Submit recommendation to HRBP
           </Btn>
         </div>
       </div>

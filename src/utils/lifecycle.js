@@ -1,10 +1,30 @@
 export function totalCycles(rec) { return rec.gradeBand === "M09_M12" ? 6 : 3; }
 export function daysCap(rec)    { return rec.gradeBand === "M09_M12" ? 180 : 90; }
 
+// Extension length is grade-differentiated: M09 & above extend for a single
+// month, E08 & below extend for the full 3-month cycle.
+export function extensionCycles(rec) { return rec.gradeBand === "M09_M12" ? 1 : 3; }
+
+// The original (pre-extension) probation stages, ending in the outcome & letter.
+function baseStages(rec) {
+  const cycles = totalCycles(rec);
+  const st = [{ key: "kpi", label: rec.wf === "WF2" ? "KPI (Acting)" : "KPI & Targets" }];
+  for (let m = 1; m <= cycles; m++) {
+    st.push({ key: `m${m}r`, label: `Month ${m} review` });
+    st.push({ key: `m${m}a`, label: `Month ${m} acceptance` });
+  }
+  return st;
+}
+
 export function getStages(rec) {
   if (rec.phase === "EXT") {
-    const st = [{ key: "ext-start", label: "Extension start" }];
-    for (let m = 1; m <= 3; m++) {
+    // Show the whole journey: the original probation cycle (now complete and
+    // resolved as an extension) followed by the grade-based extension cycle.
+    const st = baseStages(rec);
+    st.push({ key: "pending", label: "Outcome: Extension" });
+    st.push({ key: "sign",    label: "Extension signed" });
+    st.push({ key: "ext-start", label: "Extension start" });
+    for (let m = 1; m <= extensionCycles(rec); m++) {
       st.push({ key: `ext-m${m}r`, label: `Ext · Month ${m} review` });
       st.push({ key: `ext-m${m}a`, label: `Ext · Month ${m} acceptance` });
     }
@@ -13,17 +33,26 @@ export function getStages(rec) {
     st.push({ key: "ext-done",    label: "Complete" });
     return st;
   }
-  const cycles = totalCycles(rec);
-  const st = [{ key: "kpi", label: rec.wf === "WF2" ? "KPI (Acting)" : "KPI & Targets" }];
-  for (let m = 1; m <= cycles; m++) {
-    st.push({ key: `m${m}r`, label: `Month ${m} review` });
-    st.push({ key: `m${m}a`, label: `Month ${m} acceptance` });
-  }
+  const st = baseStages(rec);
   st.push({ key: "pending", label: "Outcome & letter" });
   st.push({ key: "sign",    label: "E-signature" });
   st.push({ key: "done",    label: "Complete" });
   return st;
 }
+
+// Order reviews so the original probation cycle comes first, then the
+// extension cycle. Reviews without a phase are treated as original-cycle.
+export function sortedReviews(reviews = []) {
+  return [...reviews].sort((a, b) => {
+    const ap = a.phase === "EXT" ? 1 : 0;
+    const bp = b.phase === "EXT" ? 1 : 0;
+    return ap !== bp ? ap - bp : a.cycle - b.cycle;
+  });
+}
+
+// Display label / stable React key for a single review record.
+export const reviewLabel = (rv) => (rv.phase === "EXT" ? `Ext · Month ${rv.cycle}` : `Month ${rv.cycle}`);
+export const reviewKey   = (rv) => `${rv.phase === "EXT" ? "ext" : "base"}-${rv.cycle}`;
 
 export function currentStageKey(rec) {
   const s = rec.status;

@@ -209,15 +209,6 @@ export default function SettingsUpload() {
             </Btn>
             {!hasChanges && <div className="text-[10px] text-center text-slate-400 mt-2 font-medium">System is up to date</div>}
           </Card>
-
-          <Card className="p-5 bg-gradient-to-br from-indigo-500 to-violet-600 text-white border-0">
-            <div className="font-semibold mb-1">System Limit</div>
-            <div className="text-xs text-white/80 mb-4">You are using 4.2 GB of 10 GB total storage.</div>
-            <div className="h-1.5 w-full bg-white/20 rounded-full overflow-hidden mb-4">
-              <div className="h-full bg-white transition-all underline" style={{ width: "42%" }} />
-            </div>
-            <Btn theme="white" className="w-full">Upgrade Storage</Btn>
-          </Card>
         </div>
       </div>
     </div>

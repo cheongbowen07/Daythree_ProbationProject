@@ -50,7 +50,7 @@ export default function About() {
         <div className="text-sm font-bold text-slate-800 mb-4 uppercase tracking-wider">Job Scope Fulfillment</div>
         <div className="grid grid-cols-2 gap-x-8 gap-y-4">
           <ScopeItem label="12 Screens" val="Pipeline, Dashboard, Detail, SLA, Audit, Console, Settings, About, Reports, Notifications, UAT, MyProb" />
-          <ScopeItem label="12 Forms" val="Initiate, KPI, Review, Escalate, Terminate, Profile, Sign, Feedback, Ticket, Bulk, Filter, Upload" />
+          <ScopeItem label="11 Forms" val="Initiate, KPI, Review, Escalate, Profile, Sign, Feedback, Ticket, Bulk, Filter, Upload" />
           <ScopeItem label="14 Notifications" val="Day 31/61/91, 7-Day Auto, SLA Warning, E-Sign, WF1/2 Milestones, Legal gate, SAP Sync" />
           <ScopeItem label="11 Automations" val="Scheduler, Auto-Accept, SLA Check, Letter Gen, Audit, Emp-Update, Rewards Notify, HOD Alert" />
           <ScopeItem label="5 Roles" val="LM, DR, HRBP, LEAD (Leadership), ADMIN (System Administrator)" />
@@ -66,7 +66,7 @@ export default function About() {
           <li>Grade-differentiated cycles — E08 &amp; below run 3 months/3 cycles; M09–M12 run 6 months/6 cycles.</li>
           <li>Both workflows — WF1 new-hire and WF2 acting-role (with acting grade, allowance, and LT-05/06 outcomes).</li>
           <li>The full lifecycle: KPI → monthly reviews → DR acceptance → outcome letter → internal e-signature → automatic employment-status update.</li>
-          <li>Extension as a single 3-month loop, early termination, the promotion gate (DEP-09), the 5-day letter SLA, and the append-only audit trail.</li>
+          <li>A single grade-differentiated extension loop — 1 month for M09–M12, 3 months for E08 &amp; below — the promotion gate (DEP-09), the 5-day letter SLA, and the append-only audit trail.</li>
           <li>The System Console (HRBP role) exposes the automations (A-01/A-02/A-04) as manual buttons so the invisible layer is visible.</li>
         </ul>
       </Card>

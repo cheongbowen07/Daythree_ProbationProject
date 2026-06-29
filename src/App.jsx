@@ -5,7 +5,7 @@ import {
 import { TODAY, ROLES, NAV, OUTCOME_TO_SIGN, OUTCOME_TO_LETTER, HRBP_SELF, LM_SELF } from "./constants";
 import { seedRecords, seedAudit, ev } from "./data/seed";
 import { monthFromStatus, isActiveProbation } from "./utils/status";
-import { totalCycles } from "./utils/lifecycle";
+import { totalCycles, extensionCycles } from "./utils/lifecycle";
 import { kpisForCycle } from "./utils/kpi";
 import { StyleVars, RoleCard } from "./components/ui";
 import LMDashboard    from "./components/screens/LMDashboard";
@@ -21,6 +21,7 @@ import Reports        from "./components/reports/Reports";
 import NotificationCenter from "./components/screens/NotificationCenter";
 import LMSettings     from "./components/screens/LMSettings";
 import HODPipeline    from "./components/screens/HODPipeline";
+import ReviewQueue    from "./components/screens/ReviewQueue";
 
 export default function App() {
 
@@ -105,7 +106,7 @@ export default function App() {
 
         if (newReminders >= threshold) {
           // Auto-accept fallback fires
-          const isFinal = ext ? Number(n) >= 3 : Number(n) >= totalCycles(r);
+          const isFinal = ext ? Number(n) >= extensionCycles(r) : Number(n) >= totalCycles(r);
           const next = isFinal
             ? (ext ? "Ext-LM-Outcome" : r.wf === "WF2" ? "LM-Outcome(Acting)" : "LM-Outcome")
             : (ext ? `Ext-Mth${Number(n)+1}-Review` : `Mth${Number(n)+1}-Review`);
@@ -153,8 +154,7 @@ export default function App() {
           r.gradeBand === "E08_below" &&
           r.day >= automations.dayCheck.dayThreshold &&
           !r.day91Breached &&
-          !r.status.startsWith("Complete-") &&
-          r.status !== "Terminated"
+          !r.status.startsWith("Complete-")
         ) {
           setAudit((a) => [{ id: a.length + 1000 + Math.random(), ts: `${TODAY} · ${now} MYT`, actor: "System", type: "day91-breach", detail: `A-06 auto: Day ${r.day} ≥ ${automations.dayCheck.dayThreshold} threshold — probation window elapsed for E-grade · N-07 URGENT to HRBP`, empId: r.empId, prev: "", next: "" }, ...a]);
           return { ...r, day91Breached: true };
@@ -178,7 +178,10 @@ export default function App() {
     const next = ext ? `Ext-Mth${n}-DR-Acpt` : `Mth${n}-DR-Acpt`;
     const previousKpis = kpisForCycle(r, n);
     const submittedKpis = extra.kpis?.length ? extra.kpis : previousKpis;
-    const kpisChanged = JSON.stringify(submittedKpis) !== JSON.stringify(previousKpis);
+    // Compare only the target definition (ignore recorded `actual`) so logging
+    // achievement isn't mistaken for a change to the KPI targets themselves.
+    const targetsOnly = (ks) => ks.map(({ actual, ...rest }) => rest);
+    const kpisChanged = JSON.stringify(targetsOnly(submittedKpis)) !== JSON.stringify(targetsOnly(previousKpis));
     const audits = [
       ev(r.lm, "review-submit", `${ext ? "Extension " : ""}Month ${n} review submitted (RPM ${rpm})`, r.empId, r.status, next),
       ev("System", "schedule", "N-04 daily reminder to DR · A-02 7-day timer started", r.empId),
@@ -190,11 +193,13 @@ export default function App() {
     patch(id, (rec) => {
       rec.status  = next;
       if (kpisChanged) rec.monthlyKpis = { ...(rec.monthlyKpis || {}), [n]: submittedKpis };
-      rec.reviews = [...rec.reviews.filter((v) => v.cycle !== n), {
+      // Keep original-cycle and extension reviews separate even though both
+      // run cycles 1–3 — only replace a review in the same phase + cycle.
+      rec.reviews = [...rec.reviews.filter((v) => !(v.cycle === n && (v.phase === "EXT") === ext)), {
         cycle: n, rpm, rec: recText, actor: rec.lm,
+        phase: ext ? "EXT" : "BASE",
         kpisSnapshot: submittedKpis,
         kpisChanged,
-        kpiSummary: extra.kpiSummary || "",
         actingCtx:  extra.actingCtx  || "",
         reviewDate: extra.reviewDate  || "",
         recmd:      extra.recmd       || "",
@@ -222,7 +227,7 @@ export default function App() {
     const r = records.find((x) => x.id === id);
     const n = monthFromStatus(r.status);
     const ext     = r.phase === "EXT";
-    const isFinal = ext ? n >= 3 : n >= totalCycles(r);
+    const isFinal = ext ? n >= extensionCycles(r) : n >= totalCycles(r);
     let next, audits;
     if (!isFinal) {
       next   = ext ? `Ext-Mth${n + 1}-Review` : `Mth${n + 1}-Review`;
@@ -320,7 +325,7 @@ export default function App() {
     } else if (o === "Ext") {
       next      = "Ext-Mth1-Review";
       empStatus = "Probation (extended)";
-      extra     = [ev("System", "trigger", "N-10 → LM · single 3-month extension cycle begins", r.empId)];
+      extra     = [ev("System", "trigger", `N-10 → LM · single ${extensionCycles(r)}-month extension cycle begins`, r.empId)];
     }
     const isoTs  = new Date().toISOString();
     const simIp  = `10.42.${Math.floor(Math.random()*255)}.${Math.floor(Math.random()*255)}`;
@@ -369,10 +374,10 @@ export default function App() {
       rec.earlyConfRequest = { status: "Pending", justification, effectiveDate, requestedBy: r.lm, requestedAt: TODAY };
       return rec;
     }, [
-      ev(r.lm, "early-conf", `F-07 early confirmation request submitted · proposed effective ${effectiveDate}`, r.empId),
+      ev(r.lm, "early-conf", `F-07 early confirmation recommendation submitted · proposed effective ${effectiveDate}`, r.empId),
       ev("System", "notify", "N-06 to HRBP — early confirmation approval required", r.empId),
     ]);
-    flash("Early confirmation request sent to HRBP for approval");
+    flash("Early confirmation recommendation sent to HRBP for approval");
   }
 
   function approveEarlyConf(id) {
@@ -385,25 +390,10 @@ export default function App() {
       rec.earlyConfRequest = { ...(rec.earlyConfRequest || {}), status: "Approved", approvedBy: HRBP_SELF, approvedAt: TODAY };
       return rec;
     }, [
-      ev(HRBP_SELF, "hrbp-ack", "Early confirmation request approved · LT-04 ready for generation", r.empId, r.status, "Pending-Letter"),
+      ev(HRBP_SELF, "hrbp-ack", "Early confirmation recommendation approved · LT-04 ready for generation", r.empId, r.status, "Pending-Letter"),
       ev("System", "sla-start", "A-04 3-business-day letter SLA started · LT-04 pending HRBP generation", r.empId),
     ]);
     flash("Early confirmation approved — generate LT-04 from the letter panel");
-  }
-
-  function terminate(id, reason, remarks) {
-    const r = records.find((x) => x.id === id);
-    patch(id, (rec) => {
-      rec.status = "Terminated";
-      rec.terminationReason = reason;
-      rec.employmentStatus  = "Probation (ended)";
-      rec.reminders = 0;
-      return rec;
-    }, [
-      ev(r.lm, "terminate", `F-11 early termination: ${reason}${remarks ? " — " + remarks : ""}`, r.empId, r.status, "Terminated"),
-      ev("System", "notify",  "N-14 → stakeholders · all open tasks cancelled", r.empId),
-    ]);
-    flash("Probation terminated — all pending tasks cancelled");
   }
 
   function saveKpis(id, kpis, cycle = 1) {
@@ -469,13 +459,6 @@ export default function App() {
       ev("System", "notify", `N-11 → ${newLm} (new LM) · N-09 → ${r.lm} (previous LM) · record updated`, r.empId),
     ]);
     flash(`${r.name} reassigned to ${newLm}`);
-  }
-
-  function drListEscalate(issueType, empRef, desc) {
-    const LABELS = { "wrong-assign": "Wrongly assigned", "missing-dr": "Missing from list", "wrong-details": "Incorrect details", other: "Other" };
-    log(ev(LM_SELF, "escalation", `F-06b DR list inaccuracy: ${LABELS[issueType] || issueType}${empRef ? ` · Ref: ${empRef}` : ""} — ${desc}`, "LIST", "", ""));
-    log(ev("System", "notify", "N-11 → HRBP · DR list inaccuracy report received from LM", "LIST"));
-    flash("DR list inaccuracy reported to HRBP (N-11)");
   }
 
   function reportExport(roleName, reportCode, format, rowCount) {
@@ -570,8 +553,9 @@ export default function App() {
 
           {view === "about" && <About />}
 
-          {role === "LM"   && view === "dashboard" && !active && <LMDashboard records={records} onOpen={setActiveId} onDRListEscalate={drListEscalate} onAdd={addRecord} />}
-          {role === "LM"   && view === "dashboard" && active  && <CaseDetail rec={active} role={role} onBack={() => setActiveId(null)} onSubmitReview={submitReview} onSaveReviewDraft={saveReviewDraft} onEscalate={escalate} onTerminate={terminate} onSaveKpis={saveKpis} onRequestKpiUnlock={requestKpiUnlock} onSetOutcome={setLmOutcome} onEarlyConf={earlyConf} flash={flash} />}
+          {role === "LM"   && view === "dashboard" && !active && <LMDashboard records={records} onOpen={setActiveId} />}
+          {role === "LM"   && view === "dashboard" && active  && <CaseDetail rec={active} role={role} onBack={() => setActiveId(null)} onSubmitReview={submitReview} onSaveReviewDraft={saveReviewDraft} onEscalate={escalate} onSaveKpis={saveKpis} onRequestKpiUnlock={requestKpiUnlock} onSetOutcome={setLmOutcome} onEarlyConf={earlyConf} flash={flash} />}
+          {role === "LM"   && view === "reviews"   && <ReviewQueue records={records} onOpen={(id) => { setActiveId(id); setView("dashboard"); }} onSaveKpis={saveKpis} onRequestKpiUnlock={requestKpiUnlock} onSubmitReview={submitReview} onSaveReviewDraft={saveReviewDraft} />}
           {role === "LM"   && view === "reports"   && <Reports records={records} role="LM" onReportExport={reportExport} />}
           {role === "LM"   && view === "settings"  && <LMSettings permissions={lmPermissions} />}
 

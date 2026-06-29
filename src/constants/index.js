@@ -1,6 +1,6 @@
 import {
   LayoutDashboard, Users, FileText, BarChart3, ShieldCheck,
-  Clock, ScrollText, Settings, Building2, UserCog, Bell
+  Clock, ScrollText, Settings, Building2, UserCog, Bell, ClipboardList
 } from "lucide-react";
 
 export const TODAY = "19 Jun 2026";
@@ -18,7 +18,6 @@ export const TONE_CLASS = {
   sign:       "bg-[#FCD9D9] text-[#C8102E] ring-[#F5A5A5]",
   confirmed:  "bg-[#E8FAF4] text-[#1A7D5E] ring-[#A8E8D0]",
   nconf:      "bg-[#FCD9D9] text-[#D62828] ring-[#F0AAAA]",
-  terminated: "bg-[#E0E0E0] text-[#4D4D4D] ring-[#B0B0B0]",
 };
 
 export const OUTCOME_TO_SIGN = {
@@ -51,6 +50,7 @@ export const ROLES = [
 export const NAV = {
   LM: [
     ["dashboard", "My Team Probation",   LayoutDashboard, "S-01"],
+    ["reviews",   "Reviews & KPIs",      ClipboardList,   "S-03"],
     ["reports",   "Reports & Analytics", BarChart3,       "S-12"],
     ["settings",  "Manager Settings",    Settings,        "A-15"],
   ],
@@ -97,7 +97,6 @@ export const EVENT_META = {
   "sla-breach":    ["SLA breach", "text-rose-600 bg-rose-50"],
   "day91-breach":  ["Day 91 breach", "text-rose-600 bg-rose-50"],
   escalation:      ["Escalation", "text-amber-600 bg-amber-50"],
-  terminate:       ["Terminated", "text-rose-600 bg-rose-50"],
   notify:          ["Notify",     "text-slate-600 bg-slate-100"],
   kpi:             ["KPI",        "text-slate-600 bg-slate-100"],
 };

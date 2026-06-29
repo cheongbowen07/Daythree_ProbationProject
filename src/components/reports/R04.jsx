@@ -1,6 +1,7 @@
 import { useEffect } from "react";
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from "recharts";
 import { Tag } from "../ui";
+import { RPM_MEETS, RPM_MAX } from "../../utils/kpi";
 import ReportShell, { exportReport } from "./ReportShell";
 
 export default function R04({ records, role, onReportExport, exportRef }) {
@@ -9,11 +10,11 @@ export default function R04({ records, role, onReportExport, exportRef }) {
     return { cycle: `Month ${c}`, avg: vals.length ? +(vals.reduce((a, b) => a + b, 0) / vals.length).toFixed(2) : null };
   }).filter((d) => d.avg !== null);
 
-  const belowTotal = records.flatMap((r) => r.reviews).filter((v) => v.rpm < 3).length;
+  const belowTotal = records.flatMap((r) => r.reviews).filter((v) => v.rpm < RPM_MEETS).length;
 
   function exp(format) {
     const head = ["Review Cycle", "Avg RPM Score", "Rating"];
-    const rows = data.map((d) => [d.cycle, d.avg, d.avg >= 4 ? "Strong" : d.avg >= 3 ? "Meets Expectations" : "Below Threshold"]);
+    const rows = data.map((d) => [d.cycle, d.avg, d.avg >= 8 ? "Strong" : d.avg >= RPM_MEETS ? "Meets Expectations" : "Below Threshold"]);
     exportReport(format, "R-04", "RPM Score Trends", head, rows, "R04-rpm-trends.csv", role, onReportExport, {
       scope: "Organisation-wide",
       colWidths: [18, 18, 24],
@@ -33,7 +34,7 @@ export default function R04({ records, role, onReportExport, exportRef }) {
           <LineChart data={data} margin={{ top: 8, right: 12, bottom: 8, left: -16 }}>
             <CartesianGrid strokeDasharray="3 3" stroke="#E0E0E0" vertical={false} />
             <XAxis dataKey="cycle" tick={{ fontSize: 11, fill: "#6E6E6E" }} />
-            <YAxis domain={[0, 5]} tick={{ fontSize: 11, fill: "#9D9990" }} />
+            <YAxis domain={[0, RPM_MAX]} tick={{ fontSize: 11, fill: "#9D9990" }} />
             <Tooltip />
             <Line type="monotone" dataKey="avg" stroke="#409CFF" strokeWidth={2.5} dot={{ r: 4, fill: "#409CFF", stroke: "#ffffff", strokeWidth: 2 }} name="Avg RPM" />
           </LineChart>
