@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, Fragment } from "react";
 import { Search, Download, ChevronDown, ChevronRight, ArrowRight, ShieldCheck, SlidersHorizontal, X } from "lucide-react";
 import { EVENT_META } from "../../constants";
 import { exportPDF, exportXLSX, exportCSV } from "../../utils/export";
@@ -98,7 +98,7 @@ export default function AuditTrail({ audit, records = [], onExportLog }) {
       <PageHead
         code="S-09 · Audit Trail"
         title="Compliance audit trail"
-        sub="Append-only, read-only (A-08). Every status change, submission, signing event, and reminder is traceable. Retention 7 years (pending Legal — OI-05)."
+        sub="Append-only, read-only. Every status change, submission, signing event, and reminder is traceable. Retention 7 years (pending Legal)."
         right={
           <div className="flex gap-2">
             <Btn icon={Download} variant="ghost" onClick={() => doExport("csv")}>CSV</Btn>
@@ -109,7 +109,7 @@ export default function AuditTrail({ audit, records = [], onExportLog }) {
       />
 
       <div className="mb-3 flex items-center gap-2 text-xs text-emerald-700 bg-emerald-50 ring-1 ring-emerald-100 rounded-lg px-3 py-2 font-medium">
-        <ShieldCheck size={13} /> Immutable log — append-only (A-08). Entries cannot be edited or deleted. Retained 7 years per policy OI-05.
+        <ShieldCheck size={13} /> Immutable log — append-only. Entries cannot be edited or deleted. Retained 7 years.
       </div>
 
       <Card className="p-0">
@@ -175,81 +175,97 @@ export default function AuditTrail({ audit, records = [], onExportLog }) {
           </div>
         )}
 
-        <div className="divide-y divide-slate-50 max-h-[620px] overflow-y-auto">
-          {f.map((e) => {
-            const meta     = EVENT_META[e.type] || ["Event", "text-slate-600 bg-slate-100"];
-            const isSigned = e.type === "sign";
-            const isOpen   = expanded[e.id];
-            const rec      = recMap[e.empId];
-            const fp       = rec?.completion;
-            const hasFp    = isSigned && fp;
+        <div className="overflow-x-auto max-h-[620px] overflow-y-auto">
+          <table className="w-full text-sm">
+            <thead className="sticky top-0 z-10">
+              <tr className="text-white text-[11px] uppercase tracking-wider text-left" style={{ background: "var(--brand)" }}>
+                <th className="px-4 py-3 font-semibold w-44">Activity</th>
+                <th className="px-4 py-3 font-semibold">Remarks</th>
+                <th className="px-4 py-3 font-semibold w-44">Created By</th>
+                <th className="px-4 py-3 font-semibold w-44">Date/Time</th>
+              </tr>
+            </thead>
+            <tbody>
+              {f.map((e) => {
+                const meta     = EVENT_META[e.type] || ["Event", "text-slate-600 bg-slate-100"];
+                const isSigned = e.type === "sign";
+                const isOpen   = expanded[e.id];
+                const rec      = recMap[e.empId];
+                const fp       = rec?.completion;
+                const hasFp    = isSigned && fp;
+                // Surface which direct report a remark concerns — unless the
+                // detail already names them (avoids "Name: … to Name").
+                const drName = rec && !e.detail.includes(rec.name) ? rec.name : null;
 
-            return (
-              <div key={e.id} className={isSigned ? "bg-emerald-50/40" : ""}>
-                <div
-                  className={`flex items-start gap-3 px-4 py-3 ${hasFp ? "cursor-pointer hover:bg-slate-50/60" : ""}`}
-                  onClick={() => hasFp && toggle(e.id)}
-                >
-                  {hasFp
-                    ? <span className="shrink-0 mt-0.5 text-slate-400">{isOpen ? <ChevronDown size={14} /> : <ChevronRight size={14} />}</span>
-                    : <span className="w-3.5 shrink-0" />}
+                return (
+                  <Fragment key={e.id}>
+                    <tr
+                      className={`border-b border-slate-100 ${isSigned ? "bg-emerald-50/40" : ""} ${hasFp ? "cursor-pointer hover:bg-slate-50/60" : "hover:bg-slate-50/40"}`}
+                      onClick={() => hasFp && toggle(e.id)}
+                    >
+                      <td className="px-4 py-3 align-top">
+                        <div className="flex items-center gap-1.5">
+                          {hasFp && <span className="text-slate-400">{isOpen ? <ChevronDown size={13} /> : <ChevronRight size={13} />}</span>}
+                          <span className={`text-[10px] font-semibold px-2 py-1 rounded ${meta[1]}`} style={{ fontFamily: "var(--mono)" }}>{meta[0]}</span>
+                        </div>
+                      </td>
+                      <td className="px-4 py-3 align-top text-slate-700">
+                        {drName && <span className="font-semibold text-slate-800">{drName}: </span>}
+                        {e.detail}
+                        {e.prev && e.next && (
+                          <span className="ml-2 inline-flex items-center gap-1 text-[11px] text-slate-400 whitespace-nowrap">
+                            <Mono>{e.prev}</Mono><ArrowRight size={10} /><Mono>{e.next}</Mono>
+                          </span>
+                        )}
+                        {hasFp && (
+                          <span className="ml-2 text-[9px] font-bold text-emerald-600 bg-emerald-100 px-1.5 py-0.5 rounded uppercase tracking-wide">Verified</span>
+                        )}
+                      </td>
+                      <td className="px-4 py-3 align-top text-slate-600">{e.actor}</td>
+                      <td className="px-4 py-3 align-top"><Mono className="text-xs text-slate-500 whitespace-nowrap">{e.ts}</Mono></td>
+                    </tr>
 
-                  <span className={`shrink-0 text-[10px] font-semibold px-2 py-1 rounded ${meta[1]}`} style={{ fontFamily: "var(--mono)" }}>{meta[0]}</span>
+                    {/* ── Expandable digital fingerprint ── */}
+                    {hasFp && isOpen && (
+                      <tr className="bg-emerald-50/30">
+                        <td colSpan={4} className="px-4 pb-3 pt-0">
+                          <div className="rounded-xl bg-white ring-1 ring-emerald-100 p-4 space-y-3">
+                            <div className="text-[10px] font-bold text-emerald-700 uppercase tracking-widest mb-1 flex items-center gap-1.5">
+                              <ShieldCheck size={11} /> Digital fingerprint · A-09 compliance record
+                            </div>
 
-                  <div className="min-w-0 flex-1">
-                    <div className="text-sm text-slate-700">{e.detail}</div>
-                    <div className="flex items-center gap-2 mt-0.5 text-[11px] text-slate-400 flex-wrap">
-                      <Mono>{e.ts}</Mono> · <Mono>{e.empId}</Mono> · {e.actor}
-                      {e.prev && e.next && (
-                        <span className="inline-flex items-center gap-1">
-                          · <Mono>{e.prev}</Mono><ArrowRight size={10} /><Mono>{e.next}</Mono>
-                        </span>
-                      )}
-                      {e.refId && <span className="ml-1 text-[10px] text-indigo-400 font-mono">ref:{e.refId}</span>}
-                      {empWfMap[e.empId] && <span className="text-[10px] text-slate-300">{empWfMap[e.empId]}</span>}
-                    </div>
-                  </div>
+                            <div className="grid sm:grid-cols-2 gap-x-8 gap-y-2">
+                              <div className="space-y-2">
+                                <div className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Identity</div>
+                                <FingerprintRow label="User ID"    value={fp.userId || fp.empId} />
+                                <FingerprintRow label="Signed by"  value={fp.empName} />
+                                <FingerprintRow label="IP Address" value={fp.ip} />
+                                <FingerprintRow label="User agent" value={fp.ua} />
+                              </div>
+                              <div className="space-y-2">
+                                <div className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Letter version</div>
+                                <FingerprintRow label="Letter ID"   value={fp.letterId} />
+                                <FingerprintRow label="Letter type" value={fp.letterType} />
+                                <FingerprintRow label="Version"     value={fp.letterVersion} />
+                                <FingerprintRow label="Generated"   value={fp.letterGeneratedAt ? new Date(fp.letterGeneratedAt).toLocaleString("en-MY") : "—"} />
+                              </div>
+                            </div>
 
-                  {isSigned && (
-                    <span className="shrink-0 text-[9px] font-bold text-emerald-600 bg-emerald-100 px-1.5 py-0.5 rounded uppercase tracking-wide">Verified</span>
-                  )}
-                </div>
-
-                {/* ── Expandable digital fingerprint ── */}
-                {hasFp && isOpen && (
-                  <div className="mx-4 mb-3 rounded-xl bg-white ring-1 ring-emerald-100 p-4 space-y-3">
-                    <div className="text-[10px] font-bold text-emerald-700 uppercase tracking-widest mb-1 flex items-center gap-1.5">
-                      <ShieldCheck size={11} /> Digital fingerprint · A-09 compliance record
-                    </div>
-
-                    <div className="grid sm:grid-cols-2 gap-x-8 gap-y-2">
-                      <div className="space-y-2">
-                        <div className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Identity</div>
-                        <FingerprintRow label="User ID"    value={fp.userId || fp.empId} />
-                        <FingerprintRow label="Signed by"  value={fp.empName} />
-                        <FingerprintRow label="IP Address" value={fp.ip} />
-                        <FingerprintRow label="User agent" value={fp.ua} />
-                      </div>
-                      <div className="space-y-2">
-                        <div className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Letter version</div>
-                        <FingerprintRow label="Letter ID"   value={fp.letterId} />
-                        <FingerprintRow label="Letter type" value={fp.letterType} />
-                        <FingerprintRow label="Version"     value={fp.letterVersion} />
-                        <FingerprintRow label="Generated"   value={fp.letterGeneratedAt ? new Date(fp.letterGeneratedAt).toLocaleString("en-MY") : "—"} />
-                      </div>
-                    </div>
-
-                    <div className="pt-2 border-t border-slate-100 space-y-2">
-                      <div className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Integrity</div>
-                      <FingerprintRow label="Signed at"       value={fp.ts} />
-                      <FingerprintRow label="Sign method"     value={fp.signatureMethod === "typed" ? "Typed name" : "Drawn signature"} />
-                      <FingerprintRow label="Integrity hash"  value={fp.integrityHash} />
-                    </div>
-                  </div>
-                )}
-              </div>
-            );
-          })}
+                            <div className="pt-2 border-t border-slate-100 space-y-2">
+                              <div className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Integrity</div>
+                              <FingerprintRow label="Signed at"       value={fp.ts} />
+                              <FingerprintRow label="Sign method"     value={fp.signatureMethod === "typed" ? "Typed name" : "Drawn signature"} />
+                              <FingerprintRow label="Integrity hash"  value={fp.integrityHash} />
+                            </div>
+                          </div>
+                        </td>
+                      </tr>
+                    )}
+                  </Fragment>
+                );
+              })}
+            </tbody>
+          </table>
         </div>
       </Card>
     </div>

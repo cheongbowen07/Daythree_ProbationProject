@@ -1,11 +1,10 @@
+import { useState, useEffect } from "react";
 import { RefreshCw, Clock, AlertTriangle, ShieldCheck, Activity, CalendarX } from "lucide-react";
 import { Card, PageHead, Mono } from "../ui";
 
 const PERMISSION_DEFS = [
-  { key: "delegation",   label: "Allow review delegation",          desc: "LMs can delegate a monthly review to another manager if unavailable." },
-  { key: "hodSignoff",   label: "Require HOD sign-off on outcomes", desc: "HOD must countersign confirmation or non-confirmation letters before dispatch." },
-  { key: "autoEscalate", label: "Auto-escalate overdue reviews",    desc: "Escalates to HRBP if a review isn't submitted within 5 days of the due date." },
-  { key: "notifyHrbp",   label: "Notify HRBP on every submission",  desc: "HRBP receives a notification on each monthly review submission, not just the final cycle." },
+  { key: "delegation",   label: "Allow review delegation",       desc: "LMs can delegate a monthly review to another manager if unavailable." },
+  { key: "autoEscalate", label: "Auto-escalate overdue reviews", desc: "Escalates to HRBP if a review isn't submitted within 5 days of the due date." },
 ];
 
 function Toggle({ on, onChange }) {
@@ -20,13 +19,35 @@ function Toggle({ on, onChange }) {
 }
 
 function NumberInput({ value, onChange, min = 1, max = 999 }) {
+  // local draft lets the user clear the field (blank) while editing
+  const [draft, setDraft] = useState(String(value));
+  useEffect(() => { setDraft(String(value)); }, [value]);
+
+  const handleChange = (e) => {
+    const raw = e.target.value;
+    setDraft(raw);
+    if (raw === "") return; // allow empty while typing
+    const n = Number(raw);
+    if (Number.isNaN(n)) return;
+    onChange(Math.max(min, Math.min(max, n)));
+  };
+
+  const handleBlur = () => {
+    // leaving it blank auto-completes to the minimum (1)
+    if (draft === "" || Number.isNaN(Number(draft))) {
+      onChange(min);
+      setDraft(String(min));
+    }
+  };
+
   return (
     <input
       type="number"
-      value={value}
+      value={draft}
       min={min}
       max={max}
-      onChange={(e) => onChange(Math.max(min, Math.min(max, Number(e.target.value))))}
+      onChange={handleChange}
+      onBlur={handleBlur}
       className="w-20 text-sm rounded-lg ring-1 ring-slate-200 px-2 py-1 outline-none focus:ring-indigo-400 text-center"
     />
   );
@@ -185,13 +206,17 @@ export default function SystemConsole({ records, lmPermissions = {}, setLmPermis
         <p className="text-sm text-slate-500 mb-4 -mt-2">These toggles control what line managers can and cannot do across all LM accounts.</p>
         <div className="grid md:grid-cols-2 gap-3">
           {PERMISSION_DEFS.map(({ key, label, desc }) => (
-            <Card key={key} className="p-4">
+            <Card key={key} className={`p-4 ${!isAdmin ? "opacity-60" : ""}`}>
               <div className="flex items-start justify-between gap-4">
                 <div className="flex-1">
                   <div className="text-sm font-semibold text-slate-800">{label}</div>
                   <p className="text-xs text-slate-500 mt-1 leading-relaxed">{desc}</p>
                 </div>
-                <Toggle on={lmPermissions[key]} onChange={(v) => setLmPermissions(p => ({ ...p, [key]: v }))} />
+                {isAdmin
+                  ? <Toggle on={lmPermissions[key]} onChange={(v) => setLmPermissions(p => ({ ...p, [key]: v }))} />
+                  : <div className={`relative shrink-0 w-11 h-6 rounded-full cursor-not-allowed ${lmPermissions[key] ? "bg-indigo-300" : "bg-slate-200"}`}>
+                      <span className={`absolute top-0.5 left-0.5 w-5 h-5 bg-white rounded-full shadow transition-transform duration-200 ${lmPermissions[key] ? "translate-x-5" : "translate-x-0"}`} />
+                    </div>}
               </div>
             </Card>
           ))}

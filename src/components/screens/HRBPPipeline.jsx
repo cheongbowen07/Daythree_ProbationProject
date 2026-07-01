@@ -1,10 +1,121 @@
 import { useState } from "react";
-import { Users, FileText, AlertTriangle, PenLine, ChevronRight, Plus, BarChart2, Filter } from "lucide-react";
+import { Users, FileText, AlertTriangle, PenLine, ChevronRight, Plus, Filter, CheckCircle2, Mail, Star } from "lucide-react";
 import { daysCap } from "../../utils/lifecycle";
 import { isActiveProbation, statusLabel, statusRank, defaultRowOrder } from "../../utils/status";
+import { OUTCOME_LABEL } from "../../constants";
 import { Card, PageHead, StatusBadge, Tag, Mono, Stat, Btn, SortTh, Pager } from "../ui";
 import { useSort } from "../../utils/useSort";
 import InitiateModal from "../modals/InitiateModal";
+
+const ACK_STATUSES    = ["HRBP-Ack", "HRBP-Ack(Acting)", "Ext-HRBP-Ack"];
+const LETTER_STATUSES = ["Pending-Letter", "Pending-Letter(Acting)", "Ext-Pending-Letter"];
+
+function TimelineStage({ step, icon: Icon, title, subtitle, color, dotColor, records, onOpen, renderMeta }) {
+  if (records.length === 0) return null;
+  return (
+    <div className="flex gap-4">
+      {/* spine */}
+      <div className="flex flex-col items-center">
+        <div className={`w-9 h-9 rounded-full flex items-center justify-center shrink-0 ${color}`}>
+          <Icon size={16} />
+        </div>
+        <div className="w-px flex-1 bg-slate-200 mt-1" />
+      </div>
+      {/* content */}
+      <div className="flex-1 pb-8">
+        <div className="mb-3">
+          <span className="text-xs font-bold text-slate-500 uppercase tracking-widest">{`Step ${step}`}</span>
+          <h3 className="text-sm font-semibold text-slate-800 mt-0.5">{title}</h3>
+          <p className="text-xs text-slate-400 mt-0.5">{subtitle}</p>
+        </div>
+        <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-3">
+          {records.map((r) => (
+            <button
+              key={r.id}
+              onClick={() => onOpen(r.id)}
+              className="text-left bg-white ring-1 ring-slate-200 rounded-xl p-4 hover:ring-cyan-400 hover:shadow-sm transition group"
+            >
+              <div className="flex items-start justify-between gap-2">
+                <div>
+                  <div className="font-semibold text-slate-800 text-sm">{r.name}</div>
+                  <Mono className="text-[11px] text-slate-400">{r.empId}</Mono>
+                </div>
+                <ChevronRight size={14} className="text-slate-300 group-hover:text-cyan-500 mt-1 shrink-0 transition" />
+              </div>
+              <div className="mt-2 space-y-1">
+                <div className="text-[11px] text-slate-500">LM: <span className="font-medium text-slate-700">{r.lm}</span></div>
+                {renderMeta(r)}
+              </div>
+            </button>
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function ActionTimeline({ records, onOpen }) {
+  const ackRecords       = records.filter((r) => ACK_STATUSES.includes(r.status));
+  const letterRecords    = records.filter((r) => LETTER_STATUSES.includes(r.status));
+  const earlyConfRecords = records.filter((r) => r.earlyConfRequest?.status === "Pending" && !ACK_STATUSES.includes(r.status) && !LETTER_STATUSES.includes(r.status));
+
+  const outcomeLabel = (o) => o === "Conf" ? "Confirmation" : o === "NConf" ? "Not Confirmation" : o;
+
+  if (records.length === 0) {
+    return (
+      <div className="flex flex-col items-center justify-center py-20 text-slate-400 gap-2">
+        <CheckCircle2 size={32} className="text-emerald-400" />
+        <p className="text-sm font-medium">All clear — no actions needed right now.</p>
+      </div>
+    );
+  }
+
+  return (
+    <div className="pt-2">
+      <TimelineStage
+        step={1} icon={CheckCircle2}
+        color="bg-amber-100 text-amber-600" dotColor="bg-amber-400"
+        title="HRBP Acknowledgement"
+        subtitle="Review the Line Manager's outcome decision and acknowledge to proceed to letter generation."
+        records={ackRecords}
+        onOpen={onOpen}
+        renderMeta={(r) => (
+          <>
+            <div className="text-[11px] text-amber-700 font-medium">Decision: {outcomeLabel(r.outcome)}</div>
+            <StatusBadge status={r.status} sm />
+          </>
+        )}
+      />
+      <TimelineStage
+        step={2} icon={Mail}
+        color="bg-indigo-100 text-indigo-600" dotColor="bg-indigo-400"
+        title="Letter Generation"
+        subtitle="Generate and dispatch the outcome letter. SLA: 3 business days from acknowledgement."
+        records={letterRecords}
+        onOpen={onOpen}
+        renderMeta={(r) => (
+          <>
+            {r.slaBreached
+              ? <Tag className="bg-rose-100 text-rose-700">SLA BREACHED</Tag>
+              : <div className="text-[11px] text-slate-500">SLA: <span className="font-medium text-slate-700">{r.slaDays || 0}/3 d</span></div>}
+            <StatusBadge status={r.status} sm />
+          </>
+        )}
+      />
+      <TimelineStage
+        step={3} icon={Star}
+        color="bg-emerald-100 text-emerald-600" dotColor="bg-emerald-400"
+        title="Early Confirmation Requests"
+        subtitle="Line Manager has recommended early confirmation. Review and approve or decline."
+        records={earlyConfRecords}
+        onOpen={onOpen}
+        renderMeta={(r) => (
+          <div className="text-[11px] text-emerald-700 font-medium">Early confirmation recommended</div>
+        )}
+      />
+    </div>
+  );
+}
 
 export default function HRBPPipeline({ records, onOpen, onAdd, onReports }) {
   const [addOpen, setAddOpen] = useState(false);
@@ -49,7 +160,7 @@ export default function HRBPPipeline({ records, onOpen, onAdd, onReports }) {
         code="S-06 · HRBP Pipeline"
         title="Probation Pipeline"
         sub="Organisation-wide visibility across all line managers and both workflows. HRBP initiates probation and is the sole owner of letter generation."
-        right={<div className="flex gap-2"><Btn variant="ghost" icon={BarChart2} onClick={onReports}>Reports · S-12</Btn><Btn icon={Plus} onClick={() => setAddOpen(true)}>Initiate probation</Btn></div>}
+        right={<div className="flex gap-2">{/* <Btn icon={Plus} onClick={() => setAddOpen(true)}>Initiate probation</Btn> */}</div>}
       />
 
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-5">
@@ -69,6 +180,9 @@ export default function HRBPPipeline({ records, onOpen, onAdd, onReports }) {
 
       {addOpen && <InitiateModal existingRecords={records} onClose={() => setAddOpen(false)} onAdd={(r) => { onAdd(r); setAddOpen(false); }} />}
 
+      {tab === "action" ? (
+        <ActionTimeline records={tabRecords} onOpen={onOpen} />
+      ) : (
       <Card>
         <div className="flex items-center justify-between gap-3 px-4 py-3 border-b border-slate-100 flex-wrap">
           <div className="flex items-center gap-2 text-slate-500">
@@ -115,7 +229,7 @@ export default function HRBPPipeline({ records, onOpen, onAdd, onReports }) {
                     <td className="px-4 py-3">
                       <StatusBadge status={r.status} sm />
                       {earlyConfDue && <div className="text-[10px] text-amber-600 mt-0.5">Early confirmation recommendation</div>}
-                      {ackDue && r.outcome && <div className="text-[10px] text-amber-600 mt-0.5">LM: {r.outcome}</div>}
+                      {ackDue && r.outcome && <div className="text-[10px] text-amber-600 mt-0.5">Line Manager: {OUTCOME_LABEL[r.outcome] ?? r.outcome}</div>}
                     </td>
                     <td className="px-4 py-3">
                       <Mono className="text-xs text-slate-500">{r.day}/{daysCap(r)}</Mono>
@@ -140,6 +254,7 @@ export default function HRBPPipeline({ records, onOpen, onAdd, onReports }) {
         </div>
         <Pager page={safePage} pageCount={pageCount} total={f.length} pageSize={PAGE_SIZE} onPage={setPage} />
       </Card>
+      )}
     </div>
   );
 }

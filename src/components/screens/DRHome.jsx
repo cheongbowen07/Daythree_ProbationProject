@@ -19,33 +19,16 @@ function ReminderBanner({ reminders }) {
   const veryUrgent = daysLeft === 0;
 
   return (
-    <div className={`flex items-start gap-3 rounded-xl px-4 py-3 mb-4 ring-1 ${
-      veryUrgent ? "bg-rose-50 ring-rose-200 text-rose-800"
-      : urgent   ? "bg-amber-50 ring-amber-200 text-amber-800"
-      :            "bg-blue-50 ring-blue-200 text-blue-800"
+    <span className={`inline-flex items-center gap-1.5 text-xs font-medium rounded-full px-2.5 py-1 ring-1 ${
+      veryUrgent ? "bg-rose-50 ring-rose-200 text-rose-700"
+      : urgent   ? "bg-amber-50 ring-amber-200 text-amber-700"
+      :            "bg-blue-50 ring-blue-200 text-blue-700"
     }`}>
-      <div className="shrink-0 mt-0.5">
-        {urgent ? <AlertTriangle size={16} /> : <Bell size={16} />}
-      </div>
-      <div className="flex-1">
-        <div className="text-sm font-semibold">
-          {veryUrgent
-            ? "Auto-accept will fire on the next reminder cycle"
-            : `Reminder ${reminders} of ${REMINDER_THRESHOLD} sent`}
-        </div>
-        <p className="text-xs mt-0.5 opacity-80">
-          {veryUrgent
-            ? "You have not acknowledged this review. The system will auto-accept on your behalf and log the actor as System (A-02)."
-            : `You have ${daysLeft} day${daysLeft !== 1 ? "s" : ""} remaining to acknowledge before the system auto-accepts (A-02). Daily reminders are being sent via N-04.`}
-        </p>
-      </div>
-      <div className="shrink-0 text-right">
-        <div className={`text-lg font-black ${veryUrgent ? "text-rose-600" : urgent ? "text-amber-600" : "text-blue-600"}`}>
-          {daysLeft}d
-        </div>
-        <div className="text-[10px] opacity-60">remaining</div>
-      </div>
-    </div>
+      {urgent ? <AlertTriangle size={11} /> : <Bell size={11} />}
+      {veryUrgent
+        ? "Auto-accept imminent"
+        : `Reminder ${reminders} of ${REMINDER_THRESHOLD} · You have ${daysLeft} day${daysLeft !== 1 ? "s" : ""} before auto-accept`}
+    </span>
   );
 }
 
@@ -56,12 +39,11 @@ function DRAcceptPanel({ rec, onAccept }) {
 
   return (
     <div className="p-5 rounded-lg ring-1 brand-card bg-white">
-      <div className="flex items-center gap-2 mb-1">
+      <div className="flex items-center gap-2 mb-3 flex-wrap">
         <span className="font-semibold text-slate-800">Acknowledge your Month {n} review</span>
-        <span className="text-[10px] text-slate-400" style={{ fontFamily: "var(--mono)" }}>S-05 / F-04</span>
+        {/* reference code hidden — S-05 / F-04 */}
+        <ReminderBanner reminders={rec.reminders} />
       </div>
-
-      <ReminderBanner reminders={rec.reminders} />
 
       <div className="rounded-lg ring-1 ring-slate-200 bg-slate-50 p-4 mb-3">
         <div className="flex items-center justify-between mb-2">
@@ -78,14 +60,6 @@ function DRAcceptPanel({ rec, onAccept }) {
 
       <div className="flex items-center gap-3 mt-4">
         <Btn icon={CheckCircle2} onClick={() => onAccept(rec.id, rec.name)}>Accept review</Btn>
-        <div className="flex items-center gap-1.5 text-xs text-slate-500">
-          <Clock size={13} />
-          <span>
-            {rec.reminders > 0
-              ? <><span className="font-medium text-amber-600">{rec.reminders}</span> of {REMINDER_THRESHOLD} daily reminder{rec.reminders !== 1 ? "s" : ""} sent</>
-              : "Daily reminders will start after submission"}
-          </span>
-        </div>
       </div>
     </div>
   );
@@ -291,9 +265,9 @@ export default function DRHome({ records, asDr, setAsDr, onAccept, onSign, onUpd
     <div className="fadeUp">
       <div className="mb-5 flex items-end justify-between gap-4 flex-wrap">
         <div>
-          <Mono className="text-[11px] font-semibold tracking-wide text-[#C8102E] bg-[#FCD9D9] px-1.5 py-0.5 rounded ring-1 ring-[#F5A5A5]">S-04 · MyProb</Mono>
-          <h1 className="text-[22px] font-semibold tracking-tight text-[#4D4D4D] mt-1.5">My Probation</h1>
-          <p className="text-sm text-[#6E6E6E] mt-0.5 max-w-2xl">Direct reports see only their own record (A-08). Use the selector to step into any employee for this demo.</p>
+          {/* reference code hidden — S-04 · MyProb */}
+          <h1 className="text-[22px] font-semibold tracking-tight text-[#4D4D4D]">My Probation</h1>
+          <p className="text-sm text-[#6E6E6E] mt-0.5 max-w-2xl">Direct reports see only their own record. Use the selector to step into any employee for this demo.</p>
         </div>
         <div className="relative">
           <select value={asDr} onChange={(e) => setAsDr(Number(e.target.value))} className="appearance-none text-sm bg-white ring-1 ring-slate-200 rounded-lg pl-3 pr-9 py-2 outline-none">
@@ -320,13 +294,10 @@ export default function DRHome({ records, asDr, setAsDr, onAccept, onSign, onUpd
       )}
 
       <div className="flex items-start justify-between gap-4 flex-wrap mb-4">
-        <div>
+        <div className="flex items-center gap-2 flex-wrap">
           <h2 className="text-xl font-semibold text-slate-900">{rec.name}</h2>
-          <div className="flex items-center gap-2 mt-1">
-            <Mono className="text-xs text-slate-400">{rec.empId}</Mono>
-            <Tag className="bg-slate-100 text-slate-600">{rec.grade}</Tag>
-            <StatusBadge status={rec.status} sm />
-          </div>
+          <Mono className="text-xs text-slate-400">{rec.empId}</Mono>
+          <StatusBadge status={rec.status} sm />
         </div>
       </div>
 

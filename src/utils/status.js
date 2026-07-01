@@ -2,34 +2,44 @@ import { daysCap } from "./lifecycle";
 
 export function statusLabel(s) {
   const map = {
-    "KPI-Review":             "Probation –KPI Review",
-    "KPI-Review(Acting)":     "Probation –KPI Review (Acting)",
-    "Pending-Letter":         "Probation –Pending Letter",
-    "Pending-Letter(Acting)": "Probation –Pending Letter (Acting)",
+    "KPI-Review":             "KPI Review",
+    "KPI-Review(Acting)":     "KPI Review (Acting)",
+    "Pending-Letter":         "Pending Letter",
+    "Pending-Letter(Acting)": "Pending Letter (Acting)",
     "Ext-Pending-Letter":     "Extension – Pending Letter",
+    "LM-Outcome":             "Line Manager Decision",
+    "LM-Outcome(Acting)":     "Line Manager Decision (Acting)",
+    "Ext-LM-Outcome":         "Line Manager Extension",
+    "HRBP-Ack":               "HRBP Acknowledgement",
+    "HRBP-Ack(Acting)":       "HRBP Acknowledgement (Acting)",
+    "Ext-HRBP-Ack":           "Extension – HRBP Acknowledgement",
     "Complete-Conf":          "Complete – Confirmed",
     "Complete-NConf":         "Complete – Not Confirmed",
   };
   if (map[s]) return map[s];
   let m;
-  if ((m = s.match(/^Mth(\d)-Review$/)))      return `Probation –Month ${m[1]} Review`;
-  if ((m = s.match(/^Mth(\d)-DR-Acpt$/)))     return `Probation –Month ${m[1]} DR Acceptance`;
+  if ((m = s.match(/^Mth(\d)-Review$/)))      return `Month ${m[1]} Review`;
+  if ((m = s.match(/^Mth(\d)-DR-Acpt$/)))     return `Month ${m[1]} Acceptance`;
   if ((m = s.match(/^Ext-Mth(\d)-Review$/)))  return `Extension – Month ${m[1]} Review`;
-  if ((m = s.match(/^Ext-Mth(\d)-DR-Acpt$/))) return `Extension – Month ${m[1]} DR Acceptance`;
-  if ((m = s.match(/^(.*)-Letter$/)))          return `Probation –${m[1]} Letter`;
-  if ((m = s.match(/^Pending-(.*)-Sign-Off$/))) return `Pending ${m[1]} Sign-Off`;
+  if ((m = s.match(/^Ext-Mth(\d)-DR-Acpt$/))) return `Extension – Month ${m[1]} Acceptance`;
+  if ((m = s.match(/^(.*)-Letter$/)))          return `${m[1]} Letter`;
+  if ((m = s.match(/^Pending-(.*)-Sign-Off$/))) {
+    const SIGN_LABELS = { Conf: "Confirmation", NConf: "Non-Confirmation", Ext: "Extension", EarlyConf: "Early Confirmation", ActingConf: "Acting Confirmation", ActingNConf: "Acting Non-Confirmation" };
+    return `Pending ${SIGN_LABELS[m[1]] ?? m[1]} Sign-Off`;
+  }
   return s;
 }
 
 export function tone(s) {
   if (s.startsWith("KPI"))  return "kpi";
+  if (/^Ext-Mth\d-(Review|DR-Acpt)$/.test(s)) return "extension";
   if (/-Review$/.test(s))   return "review";
   if (/-DR-Acpt$/.test(s))  return "accept";
+  if (s.includes("LM-Outcome") || s.includes("HRBP-Ack")) return "decision";
   if (s === "Pending-Letter" || s === "Pending-Letter(Acting)" || s === "Ext-Pending-Letter") return "pending";
   if (/-Letter$/.test(s))   return "letter";
   if (/Sign-Off$/.test(s))  return "sign";
-  if (s === "Complete-Conf") return "confirmed";
-  if (s === "Complete-NConf") return "nconf";
+  if (s === "Complete-Conf" || s === "Complete-NConf") return "complete";
   return "kpi";
 }
 
@@ -70,7 +80,7 @@ export function rowPriority(r, role) {
   const mine = role && pendingFor(r, role);
   if (mine && r.slaBreached)          return 0;   // my action, SLA breached → top
   if (mine)                           return 1;   // my action due
-  if (r.slaBreached)                  return 2;   // someone else's SLA breach
+  if (r.slaBreached && role === "HRBP") return 2;  // letter SLA breach — HRBP concern only
   if (/Sign-Off$/.test(r.status))     return 3;   // awaiting signature
   if (/HRBP-Ack/.test(r.status))      return 4;   // acknowledgement
   return 50;                                       // active, nothing due
@@ -82,9 +92,8 @@ function daysRemaining(r) {
 }
 
 // Comparator for the initial (no column selected) sort of a dashboard table.
-// Action-required rows float to the top (see rowPriority); within a bucket the
-// most urgent cases — fewest days remaining in the window — come first.
-// Completed rows are ordered most-recently-completed first.
+// Action-required rows float to the top sorted by urgency; non-action active
+// rows follow in timeline order (earliest stage first); completed rows last.
 export function defaultRowOrder(role) {
   return (a, b) => {
     const pa = rowPriority(a, role);
@@ -95,7 +104,8 @@ export function defaultRowOrder(role) {
       const tb = b.completion?.isoTs || "";
       return tb.localeCompare(ta); // newest completion first
     }
-    return daysRemaining(a) - daysRemaining(b); // most urgent first
+    if (pa < 50) return daysRemaining(a) - daysRemaining(b); // action rows: most urgent first
+    return statusRank(b.status) - statusRank(a.status); // non-action: latest stage first
   };
 }
 
@@ -119,7 +129,7 @@ export function statusGroup(s) {
 
 export function pendingFor(rec, role) {
   const s = rec.status;
-  if (role === "LM"   && (/-Review$/.test(s) || s === "KPI-Review" || s === "KPI-Review(Acting)")) return true;
+  if (role === "LM"   && (/-Review$/.test(s) || s === "KPI-Review" || s === "KPI-Review(Acting)" || s === "LM-Outcome" || s === "LM-Outcome(Acting)" || s === "Ext-LM-Outcome")) return true;
   if (role === "DR"   && (/-DR-Acpt$/.test(s) || /Sign-Off$/.test(s))) return true;
   if (role === "HRBP") {
     if (rec.earlyConfRequest?.status === "Pending") return true;

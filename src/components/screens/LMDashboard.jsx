@@ -1,37 +1,44 @@
 import { useState } from "react";
 import { Search, Bell, Users, ClipboardList, CheckCircle2, ChevronRight } from "lucide-react";
-import { LM_SELF } from "../../constants";
-import { isActiveProbation, pendingFor, statusRank, defaultRowOrder } from "../../utils/status";
+import { LM_SELF, OUTCOME_LABEL } from "../../constants";
+import { isActiveProbation, pendingFor, statusRank, defaultRowOrder, statusLabel } from "../../utils/status";
 import { daysCap, totalCycles } from "../../utils/lifecycle";
-import { Card, StatusBadge, Tag, PageHead, Mono, Stat, SortTh, Pager } from "../ui";
+import { Card, StatusBadge, PageHead, Mono, Stat, SortTh, Pager } from "../ui";
 import { useSort } from "../../utils/useSort";
+
+function dashLabel(s, outcome) {
+  if (s === "Complete-Conf" || s === "Complete-NConf") return undefined;
+  let m;
+  if ((m = s.match(/^Mth(\d)-(?:Review|DR-Acpt)$/)))     return `Month ${m[1]}`;
+  if ((m = s.match(/^Ext-Mth(\d)-(?:Review|DR-Acpt)$/))) return `Extension – Month ${m[1]}`;
+  if (s === "HRBP-Ack" || s === "HRBP-Ack(Acting)") {
+    const ol = outcome ? OUTCOME_LABEL[outcome] : null;
+    return ol ? `HRBP Acknowledgement – ${ol}` : "HRBP Acknowledgement";
+  }
+  if (s === "Pending-Letter" || s === "Pending-Letter(Acting)") return "Pending Letter from HRBP";
+  if (s === "Pending-NConf-Sign-Off")  return "Pending Non-Confirmation Sign-Off";
+  return statusLabel(s);
+}
 
 export default function LMDashboard({ records, onOpen }) {
   const [q, setQ]           = useState("");
-  const [tab, setTab]       = useState("all");
   const [page, setPage]     = useState(0);
   const PAGE_SIZE = 10;
 
   const { sort, toggle, sortRows } = useSort({
     name:        (r) => r.name,
-    type:        (r) => (r.wf === "WF2" ? "Acting" : "New-hire"),
-    actingGrade: (r) => r.acting?.grade,
-    allowance:   (r) => r.acting?.allowance,
-    actingStart: (r) => new Date(r.acting?.start).getTime() || 0,
-    outcome:     (r) => r.outcome,
     joined:      (r) => new Date(r.joined).getTime() || 0,
     status:      (r) => statusRank(r.status),
     daysLeft:    (r) => (isActiveProbation(r.status) ? Math.max(0, daysCap(r) - r.day) : -1),
     months:      (r) => r.currentCycle || 0,
   }, defaultRowOrder("LM"));
 
-  const team     = records.filter((r) => r.lm === LM_SELF);
-  const normal   = team.filter((r) => r.wf !== "WF2");
-  const acting   = team.filter((r) => r.wf === "WF2");
-  const view     = tab === "normal" ? normal : tab === "acting" ? acting : team;
-  const searched = view.filter((r) => (r.name + r.empId).toLowerCase().includes(q.toLowerCase()));
+  const team     = records.filter((r) => r.lm === LM_SELF && r.wf !== "WF2");
+  const searched = team.filter((r) => (r.name + r.empId).toLowerCase().includes(q.toLowerCase()));
   const filtered = sortRows(searched);
-  const pending  = team.filter((r) => pendingFor(r, "LM")).length;
+  const pendingRows  = team.filter((r) => pendingFor(r, "LM"));
+  const pending      = pendingRows.length;
+  const activeOther  = team.filter((r) => isActiveProbation(r.status) && !pendingFor(r, "LM")).length;
   const pageCount = Math.ceil(filtered.length / PAGE_SIZE);
   const safePage  = Math.min(page, Math.max(0, pageCount - 1));
   const paged     = filtered.slice(safePage * PAGE_SIZE, (safePage + 1) * PAGE_SIZE);
@@ -41,29 +48,14 @@ export default function LMDashboard({ records, onOpen }) {
       <PageHead
         code="S-01 · MyTeamProb"
         title="My Team Probation"
-        sub={`${LM_SELF} · ${team.length} direct reports. Scope is enforced by A-08 — managers see only their own team.`}
+        className="mb-3"
       />
 
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-5">
-        <Stat label="Direct reports"   value={team.length}                                               icon={Users}          />
-        <Stat label="Pending my action" value={pending}                                                  icon={Bell}    tone="amber"   />
-        <Stat label="In progress"      value={team.filter((r) => isActiveProbation(r.status)).length}   icon={ClipboardList}  />
-        <Stat label="Completed"        value={team.filter((r) => !isActiveProbation(r.status)).length}  icon={CheckCircle2} tone="emerald" />
-      </div>
-
-      {/* S-11 tab switcher */}
-      <div className="flex gap-1 mb-4 border-b border-slate-200">
-        {[
-          ["all", "All probations", `S-01`],
-          ["normal", "New Hire", `${normal.length}`],
-          ["acting", `Acting-role (WF2) · S-11`, `${acting.length}`],
-        ].map(([key, label, badge]) => (
-          <button key={key} onClick={() => { setTab(key); setPage(0); }}
-            className={`px-4 py-2 text-sm font-medium border-b-2 -mb-px transition flex items-center gap-2 ${tab === key ? "border-violet-500 text-violet-700" : "border-transparent text-slate-500 hover:text-slate-700"}`}>
-            {label}
-            <span className={`text-[10px] px-1.5 py-0.5 rounded font-mono ${tab === key ? "bg-violet-100 text-violet-700" : "bg-slate-100 text-slate-500"}`}>{badge}</span>
-          </button>
-        ))}
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-3">
+        <Stat label="Direct reports"    value={team.length}   icon={Users}          />
+        <Stat label="Pending my action" value={pending}       icon={Bell}           tone="amber"   />
+        <Stat label="Active"            value={activeOther}   icon={ClipboardList}  />
+        <Stat label="Completed"         value={team.filter((r) => !isActiveProbation(r.status)).length} icon={CheckCircle2} tone="emerald" />
       </div>
 
       <Card className="flex-1 min-h-0 overflow-hidden flex flex-col">
@@ -76,19 +68,25 @@ export default function LMDashboard({ records, onOpen }) {
             <thead className="sticky top-0 z-10 bg-white">
               <tr className="text-left text-[11px] uppercase tracking-wider text-slate-400 border-b border-slate-100">
                 <SortTh label="Employee" sortKey="name" sort={sort} onSort={toggle} />
-                {tab === "acting"
-                  ? <><SortTh label="Acting grade" sortKey="actingGrade" sort={sort} onSort={toggle} /><SortTh label="Allowance" sortKey="allowance" sort={sort} onSort={toggle} /><SortTh label="Acting since" sortKey="actingStart" sort={sort} onSort={toggle} /><SortTh label="Outcome" sortKey="outcome" sort={sort} onSort={toggle} /></>
-                  : <SortTh label="Type" sortKey="type" sort={sort} onSort={toggle} />}
                 <SortTh label="Start date" sortKey="joined" sort={sort} onSort={toggle} />
-                <SortTh label="Status" sortKey="status" sort={sort} onSort={toggle} />
                 <SortTh label="Days remaining" sortKey="daysLeft" sort={sort} onSort={toggle} />
                 <SortTh label="Months" sortKey="months" sort={sort} onSort={toggle} />
+                <SortTh label="Status" sortKey="status" sort={sort} onSort={toggle} />
                 <th className="px-4 py-2.5 font-medium text-right">Action</th>
               </tr>
             </thead>
             <tbody>
               {paged.map((r) => {
                 const due = pendingFor(r, "LM");
+                const isKpiStage    = r.status.startsWith("KPI-Review");
+                const isReviewStage = !isKpiStage && /-Review$/.test(r.status);
+                const actionLabel   = due ? (isKpiStage ? "KPI Review due" : "Action due") : "View";
+                let statusLabel = dashLabel(r.status, r.outcome);
+                if (due && isReviewStage) {
+                  let m;
+                  if ((m = r.status.match(/^Mth(\d+)-Review$/)))     statusLabel = `Month ${m[1]} Review`;
+                  if ((m = r.status.match(/^Ext-Mth(\d+)-Review$/))) statusLabel = `Extension – Month ${m[1]} Review`;
+                }
                 return (
                   <tr key={r.id} className="border-b border-slate-50 hover:bg-slate-50/70 cursor-pointer" onClick={() => onOpen(r.id)}>
                     <td className="px-4 py-3">
@@ -97,16 +95,7 @@ export default function LMDashboard({ records, onOpen }) {
                       </div>
                       <Mono className="text-[11px] text-slate-400">{r.empId}</Mono>
                     </td>
-                    {tab === "acting"
-                      ? <>
-                          <td className="px-4 py-3"><Tag className="bg-violet-50 text-violet-700">{r.acting?.grade || "—"}</Tag></td>
-                          <td className="px-4 py-3 text-xs text-slate-500 whitespace-nowrap">{r.acting?.allowance || "—"}</td>
-                          <td className="px-4 py-3 text-xs text-slate-500 whitespace-nowrap">{r.acting?.start || "—"}</td>
-                          <td className="px-4 py-3 text-xs text-slate-500">{r.outcome ? <Tag className="bg-emerald-50 text-emerald-700">{r.outcome === "ActingConf" ? "Confirmed" : r.outcome === "ActingNConf" ? "Non-Confirmed" : r.outcome}</Tag> : <span className="text-slate-300">—</span>}</td>
-                        </>
-                      : <td className="px-4 py-3"><Tag className={r.wf === "WF2" ? "bg-violet-50 text-violet-700" : "bg-blue-50 text-blue-700"}>{r.wf === "WF2" ? "Acting" : "New-hire"}</Tag></td>}
                     <td className="px-4 py-3 text-slate-500 text-xs whitespace-nowrap">{r.joined || "—"}</td>
-                    <td className="px-4 py-3"><StatusBadge status={r.status} sm /></td>
                     <td className="px-4 py-3">
                       {isActiveProbation(r.status)
                         ? <Mono className={`text-xs ${daysCap(r) - r.day <= 7 ? "text-rose-600 font-semibold" : "text-slate-500"}`}>{Math.max(0, daysCap(r) - r.day)}d</Mono>
@@ -115,9 +104,10 @@ export default function LMDashboard({ records, onOpen }) {
                     <td className="px-4 py-3">
                       <Mono className="text-xs text-slate-500">{r.currentCycle || 0}/{totalCycles(r)}</Mono>
                     </td>
+                    <td className="px-4 py-3"><StatusBadge status={r.status} sm label={statusLabel} toneKey={/^(Ext-)?Mth\d-(Review|DR-Acpt)$/.test(r.status) ? "review" : undefined} /></td>
                     <td className="px-4 py-3 text-right">
                       <span className={`inline-flex items-center gap-1 text-xs font-medium ${due ? "text-cyan-700" : "text-slate-400"}`}>
-                        {due ? "Action due" : "View"} <ChevronRight size={14} />
+                        {actionLabel} <ChevronRight size={14} />
                       </span>
                     </td>
                   </tr>

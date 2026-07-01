@@ -17,7 +17,7 @@ export function Modal({ title, code, onClose, children, wide, xl, page }) {
           </button>
           <div className="flex items-center gap-2 mb-4">
             <h1 className="text-[22px] font-semibold tracking-tight text-[#4D4D4D]">{title}</h1>
-            {code && <Mono className="text-[11px] text-slate-400">{code}</Mono>}
+            {/* reference code hidden — {code} */}
           </div>
           <div className="bg-white rounded-2xl shadow-sm ring-1 ring-slate-100 p-5 sm:p-6">
             {children}
@@ -41,7 +41,7 @@ export function Modal({ title, code, onClose, children, wide, xl, page }) {
         <div className="flex items-center justify-between px-5 py-3.5 border-b border-slate-100 sticky top-0 bg-white">
           <div className="flex items-center gap-2">
             <span className="font-semibold text-slate-800">{title}</span>
-            {code && <Mono className="text-[10px] text-slate-400">{code}</Mono>}
+            {/* reference code hidden — {code} */}
           </div>
           <button onClick={onClose} className="text-slate-400 hover:text-slate-600"><X size={18} /></button>
         </div>

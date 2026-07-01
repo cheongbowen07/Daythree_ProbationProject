@@ -46,7 +46,7 @@ export default function ReportShell({ code, title, onExport, children }) {
     <Card className="p-5">
       <div className="flex items-center justify-between mb-4 flex-wrap gap-2">
         <div className="text-sm font-semibold text-slate-800 flex items-center gap-2">
-          <Mono className="text-[11px] text-cyan-700">{code}</Mono> {title}
+          {/* reference code hidden — {code} */} {title}
         </div>
         <div className="flex gap-2">
           <Btn size="sm" variant="ghost" icon={Download} onClick={() => onExport("xlsx")}>Excel</Btn>

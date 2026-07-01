@@ -29,11 +29,22 @@ export function Mono({ children, className = "" }) {
   return <span className={className} style={{ fontFamily: "var(--mono)" }}>{children}</span>;
 }
 
-export function StatusBadge({ status, sm }) {
-  const t = tone(status);
+export function StatusBadge({ status, sm, label, toneKey }) {
+  const t = toneKey || tone(status);
+  const isCompleteConf = status === "Complete-Conf";
+  const isCompleteNConf = status === "Complete-NConf";
   return (
     <span className={`inline-flex items-center rounded-full ring-1 font-medium ${TONE_CLASS[t]} ${sm ? "px-2 py-0.5 text-[11px]" : "px-2.5 py-1 text-xs"}`}>
-      {statusLabel(status)}
+      {label ? label : (
+        isCompleteConf || isCompleteNConf ? (
+          <>
+            <span>Complete –&nbsp;</span>
+            <span className={isCompleteConf ? "text-[#047857]" : "text-[#B91C1C]"}>
+              {isCompleteConf ? "Confirmed" : "Not Confirmed"}
+            </span>
+          </>
+        ) : statusLabel(status)
+      )}
     </span>
   );
 }
@@ -46,12 +57,12 @@ export function Tag({ children, className = "" }) {
   );
 }
 
-export function PageHead({ code, title, sub, right }) {
+export function PageHead({ code, title, sub, right, className = "mb-5" }) {
   return (
-    <div className="mb-5 flex items-end justify-between gap-4 flex-wrap">
+    <div className={`flex items-end justify-between gap-4 flex-wrap ${className}`}>
       <div>
-        <Mono className="text-[11px] font-semibold tracking-wide text-[#C8102E] bg-[#FCD9D9] px-1.5 py-0.5 rounded ring-1 ring-[#F5A5A5]">{code}</Mono>
-        <h1 className="text-[22px] font-semibold tracking-tight text-[#4D4D4D] mt-1.5">{title}</h1>
+        {/* reference code hidden — {code} */}
+        <h1 className="text-[22px] font-semibold tracking-tight text-[#4D4D4D]">{title}</h1>
         {sub && <p className="text-sm text-[#6E6E6E] mt-0.5 max-w-2xl">{sub}</p>}
       </div>
       {right}
@@ -180,7 +191,7 @@ export function Stat({ label, value, icon: Icon, tone: t = "slate" }) {
     emerald: "text-[#1A7D5E] bg-[#E8FAF4]",
   };
   return (
-    <Card className="px-4 py-3.5 flex items-center gap-3">
+    <Card className="px-4 py-2.5 flex items-center gap-3">
       <div className={`grid place-items-center w-9 h-9 rounded-lg ${tones[t]}`}><Icon size={18} /></div>
       <div>
         <div className="text-xl font-semibold text-slate-900 leading-none">{value}</div>

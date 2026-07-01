@@ -10,14 +10,15 @@ export const HOD_SELF  = "Ahmad Razif";
 export const HOD_DEPT  = "Operations";
 
 export const TONE_CLASS = {
-  kpi:        "bg-[#EFE8FF] text-[#5D3FD3] ring-[#C3B1F5]",
-  review:     "bg-[#E8F3FF] text-[#1A6ECC] ring-[#A8D1FF]",
-  accept:     "bg-[#E8FAF4] text-[#1A7D5E] ring-[#A8E8D0]",
-  pending:    "bg-[#FFF3D6] text-[#9A6400] ring-[#FFD98A]",
-  letter:     "bg-[#EFE8FF] text-[#5D3FD3] ring-[#C3B1F5]",
-  sign:       "bg-[#FCD9D9] text-[#C8102E] ring-[#F5A5A5]",
-  confirmed:  "bg-[#E8FAF4] text-[#1A7D5E] ring-[#A8E8D0]",
-  nconf:      "bg-[#FCD9D9] text-[#D62828] ring-[#F0AAAA]",
+  kpi:        "bg-[#F5F3FF] text-[#6D28D9] ring-[#DDD6FE]",
+  review:     "bg-[#EFF6FF] text-[#1D4ED8] ring-[#BFDBFE]",
+  extension:  "bg-[#FFF7ED] text-[#C2410C] ring-[#FED7AA]",
+  accept:     "bg-[#ECFEFF] text-[#0E7490] ring-[#A5F3FC]",
+  decision:   "bg-[#F8FAFC] text-[#475569] ring-[#CBD5E1]",
+  pending:    "bg-[#FFFBEB] text-[#B45309] ring-[#FCD34D]",
+  letter:     "bg-[#EEF2FF] text-[#4338CA] ring-[#C7D2FE]",
+  sign:       "bg-[#FFF1F2] text-[#BE123C] ring-[#FDA4AF]",
+  complete:   "bg-[#F8FAFC] text-[#64748B] ring-[#CBD5E1]",
 };
 
 export const OUTCOME_TO_SIGN = {
@@ -52,7 +53,6 @@ export const NAV = {
     ["dashboard", "My Team Probation",   LayoutDashboard, "S-01"],
     ["reviews",   "Reviews & KPIs",      ClipboardList,   "S-03"],
     ["reports",   "Reports & Analytics", BarChart3,       "S-12"],
-    ["settings",  "Manager Settings",    Settings,        "A-15"],
   ],
   DR: [
     ["myprob", "My Probation", UserCog, "S-04"],
@@ -60,7 +60,7 @@ export const NAV = {
   HRBP: [
     ["pipeline", "Probation Pipeline",   LayoutDashboard, "S-06"],
     ["sla",      "SLA Tracker",          Clock,           "S-08"],
-    // ["audit",    "Audit Trail",          ScrollText,      "S-09"], // hidden — compliance audit trail
+    ["audit",    "Audit Trail",          ScrollText,      "S-09"],
     ["reports",  "Reports & Analytics",  BarChart3,       "S-12"],
     ["notifications", "Notification Engine", Bell,        "S-05"],
     ["console",  "System Console",       Settings,        "A-01·02·04"],
@@ -75,7 +75,7 @@ export const NAV = {
   ],
   ADMIN: [
     ["console",  "System Console",       Settings,        "A-01"],
-    // ["audit",    "Master Audit",         ScrollText,      "S-09"], // hidden — compliance audit trail
+    ["audit",    "Master Audit",         ScrollText,      "S-09"],
     ["notifications", "Dispatcher",       Bell,           "S-05"],
   ],
 };

@@ -47,7 +47,7 @@ function ActionPanel({ code, title, desc, tone: t, children }) {
         <div className="flex-1">
           <div className="flex items-center gap-2">
             <span className="font-semibold text-slate-800">{title}</span>
-            <Mono className="text-[10px] text-slate-400">{code}</Mono>
+            {/* reference code hidden — {code} */}
           </div>
           <p className="text-sm text-slate-500 mt-1 mb-3">{desc}</p>
           {children}
@@ -66,7 +66,7 @@ function LmOutcomePanel({ rec, onSetOutcome }) {
     <Card className="p-5">
       <div className="flex items-center gap-2 mb-1">
         <span className="font-semibold text-slate-800">Record outcome decision</span>
-        <Mono className="text-[10px] text-slate-400">S-07 / F-05</Mono>
+        {/* reference code hidden — S-07 / F-05 */}
       </div>
       <p className="text-sm text-slate-500 mb-4">
         All review cycles are complete. Select the outcome — HRBP will then generate and dispatch the letter for signing.
@@ -120,7 +120,7 @@ function LetterGenPanel({ rec, onGenerate }) {
     <Card className="p-5">
       <div className="flex items-center gap-2 mb-1">
         <span className="font-semibold text-slate-800">Generate outcome letter</span>
-        <Mono className="text-[10px] text-slate-400">S-07 / F-05</Mono>
+        {/* reference code hidden — S-07 / F-05 */}
       </div>
       <p className="text-sm text-slate-500 mb-4">
         Outcome decided by Line Manager. Review the details and generate the letter for e-signature.
@@ -198,14 +198,13 @@ const OUTCOME_LT = {
 
 function HrbpAckPanel({ rec, onHrbpAck }) {
   const [remarks, setRemarks] = useState("");
+  const [returning, setReturning] = useState(false);
   const label = OUTCOME_LABEL[rec.outcome] || rec.outcome;
   const lt    = OUTCOME_LT[rec.outcome] || "—";
-  const canReturn = remarks.trim().length > 0; // a remark is mandatory to return to the LM
   return (
     <Card className="p-5">
       <div className="flex items-center gap-2 mb-1">
         <span className="font-semibold text-slate-800">Acknowledge LM outcome decision</span>
-        <Mono className="text-[10px] text-slate-400">S-07 / F-05</Mono>
       </div>
       <p className="text-sm text-slate-500 mb-4">
         The Line Manager has recorded an outcome. Review it below and either acknowledge to proceed to letter generation, or return it to the LM for reconsideration.
@@ -226,31 +225,39 @@ function HrbpAckPanel({ rec, onHrbpAck }) {
         </div>
       )}
 
-      <label className="block text-xs text-slate-500 mb-1">Remarks <span className="text-slate-400">(optional to acknowledge · required to return to LM)</span></label>
-      <textarea
-        value={remarks}
-        onChange={(e) => setRemarks(e.target.value)}
-        rows={2}
-        placeholder="Add a note for the audit trail…"
-        className="w-full text-sm rounded-lg ring-1 ring-slate-200 px-3 py-2 outline-none focus:ring-cyan-400 resize-none mb-4"
-      />
-
-      <div className="flex gap-2">
-        <Btn icon={Send} onClick={() => onHrbpAck(rec.id, true, remarks)} className="flex-1">
-          Acknowledge &amp; proceed to letter
-        </Btn>
-        <Btn
-          variant="ghost"
-          icon={XCircle}
-          disabled={!canReturn}
-          onClick={() => canReturn && onHrbpAck(rec.id, false, remarks)}
-          title={canReturn ? undefined : "Add a remark explaining why you are returning the decision to the LM"}
-          className="text-rose-600 ring-rose-200 hover:bg-rose-50"
-        >
-          Return to LM
-        </Btn>
-      </div>
-      {!canReturn && <p className="text-[11px] text-slate-400 mt-2">A remark is required to return the decision to the Line Manager.</p>}
+      {returning ? (
+        <div className="space-y-3">
+          <label className="block text-xs text-slate-500">Remarks <span className="text-slate-400">(required)</span></label>
+          <textarea
+            autoFocus
+            value={remarks}
+            onChange={(e) => setRemarks(e.target.value)}
+            rows={2}
+            placeholder="State the reason for returning to the Line Manager…"
+            className="w-full text-sm rounded-lg ring-1 ring-slate-200 px-3 py-2 outline-none focus:ring-rose-400 resize-none"
+          />
+          <div className="flex gap-2">
+            <Btn
+              icon={XCircle}
+              disabled={!remarks.trim()}
+              onClick={() => onHrbpAck(rec.id, false, remarks)}
+              className="text-rose-600 ring-rose-200 hover:bg-rose-50"
+            >
+              Confirm return to LM
+            </Btn>
+            <Btn variant="ghost" onClick={() => { setReturning(false); setRemarks(""); }}>Cancel</Btn>
+          </div>
+        </div>
+      ) : (
+        <div className="flex gap-2">
+          <Btn icon={Send} onClick={() => onHrbpAck(rec.id, true, "")} className="flex-1">
+            Acknowledge &amp; proceed to letter
+          </Btn>
+          <Btn variant="ghost" icon={XCircle} onClick={() => setReturning(true)} className="text-rose-600 ring-rose-200 hover:bg-rose-50">
+            Return to LM
+          </Btn>
+        </div>
+      )}
     </Card>
   );
 }
@@ -261,7 +268,7 @@ function EarlyConfApprovalPanel({ rec, onApproveEarlyConf }) {
     <Card className="p-5">
       <div className="flex items-center gap-2 mb-1">
         <span className="font-semibold text-slate-800">Approve early confirmation recommendation</span>
-        <Mono className="text-[10px] text-slate-400">F-07 · LT-04</Mono>
+        {/* reference code hidden — F-07 · LT-04 */}
       </div>
       <p className="text-sm text-slate-500 mb-4">
         {rec.lm} has recommended early confirmation. HRBP approval is required before LT-04 can be generated and sent for acknowledgement.
@@ -428,8 +435,11 @@ export default function CaseDetail({ rec, role, onBack, onSubmitReview, onSaveRe
 
       <div className="flex items-start justify-between gap-4 flex-wrap mb-4">
         <div>
-          <div className="flex items-center gap-3 flex-wrap">
+          <div className="flex items-center gap-2 flex-wrap">
             <h1 className="text-2xl font-semibold tracking-tight text-slate-900">{rec.name}</h1>
+            <Mono className="text-xs text-slate-400">{rec.empId}</Mono>
+            <Tag className={rec.wf === "WF2" ? "bg-violet-50 text-violet-700" : "bg-blue-50 text-blue-700"}>{rec.wf} · {rec.wf === "WF2" ? "Acting-Role" : "New-Hire"}</Tag>
+            <StatusBadge status={rec.status} sm />
             {role === "HRBP" && onReassignLM && (
               <button
                 onClick={() => setModal("reassign")}
@@ -438,12 +448,6 @@ export default function CaseDetail({ rec, role, onBack, onSubmitReview, onSaveRe
                 <UserCog size={12} /> Reassign LM
               </button>
             )}
-          </div>
-          <div className="flex items-center gap-2 mt-1.5 flex-wrap">
-            <Mono className="text-xs text-slate-400">{rec.empId}</Mono>
-            <Tag className="bg-slate-100 text-slate-600">{rec.grade}</Tag>
-            <Tag className={rec.wf === "WF2" ? "bg-violet-50 text-violet-700" : "bg-blue-50 text-blue-700"}>{rec.wf} · {rec.wf === "WF2" ? "Acting-Role" : "New-Hire"}</Tag>
-            <StatusBadge status={rec.status} sm />
           </div>
         </div>
         <div className="text-right text-sm">

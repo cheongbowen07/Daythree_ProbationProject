@@ -17,8 +17,9 @@ export default function ReviewModal({ rec, month, onClose, onSubmit, onSaveDraft
   const [actingCtx, setActingCtx]   = useState(draft?.actingCtx || "");
   const [reviewDate, setReviewDate] = useState(draft?.reviewDate || TODAY);
   const [recmd, setRecmd]           = useState(draft?.recmd || "Satisfactory");
+  const [saved, setSaved] = useState(false);
   const cycles = rec.phase === "EXT" ? extensionCycles(rec) : totalCycles(rec);
-  const canEditKpis = month > 1;
+  const canEditKpis = true;
   const totalWeight = kpis.reduce((a, k) => a + (Number(k.weight) || 0), 0);
 
   // RPM is derived from KPI achievement — never chosen by the LM.
@@ -201,7 +202,7 @@ export default function ReviewModal({ rec, month, onClose, onSubmit, onSaveDraft
       )}
 
       <div className="flex justify-end gap-2 mt-4 pt-3 border-t border-slate-100">
-        <Btn variant="ghost" onClick={() => onSaveDraft?.(currentDraft())}>Save draft</Btn>
+        <Btn variant="ghost" disabled={saved} onClick={() => { setSaved(true); onSaveDraft?.(currentDraft()); setTimeout(onClose, 300); }}>Save draft</Btn>
         <Btn disabled={!valid} onClick={() => onSubmit(rpm, comments, { kpis, actingCtx, reviewDate, recmd })}>Submit review</Btn>
       </div>
     </Modal>

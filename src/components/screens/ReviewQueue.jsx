@@ -81,12 +81,9 @@ export default function ReviewQueue({ records, onOpen, onSaveKpis, onRequestKpiU
           {items.map((it) => (
             <Card key={it.r.id} className="p-4 flex items-center justify-between gap-4 flex-wrap">
               <div className="min-w-0">
-                <div className="font-medium text-slate-800 flex items-center gap-2">
+                <div className="font-medium text-slate-800 flex items-center gap-2 flex-wrap">
                   {it.r.name} <Mono className="text-[11px] text-slate-400">{it.r.empId}</Mono>
-                </div>
-                <div className="flex items-center gap-2 mt-1.5 flex-wrap">
                   <StatusBadge status={it.r.status} sm />
-                  <Tag className={it.badgeCls}>{it.badge}</Tag>
                 </div>
               </div>
               <Btn icon={it.icon} onClick={() => startAction(it)}>{it.btn}</Btn>

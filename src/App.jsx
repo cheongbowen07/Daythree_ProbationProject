@@ -19,7 +19,6 @@ import SettingsUpload from "./components/screens/SettingsUpload";
 import About          from "./components/screens/About";
 import Reports        from "./components/reports/Reports";
 import NotificationCenter from "./components/screens/NotificationCenter";
-import LMSettings     from "./components/screens/LMSettings";
 import HODPipeline    from "./components/screens/HODPipeline";
 import ReviewQueue    from "./components/screens/ReviewQueue";
 
@@ -37,9 +36,7 @@ export default function App() {
   const [roleMenu, setRoleMenu] = useState(false);
   const [lmPermissions, setLmPermissions] = useState({
     delegation:   false,
-    hodSignoff:   true,
     autoEscalate: true,
-    notifyHrbp:   false,
   });
   const [automations, setAutomations] = useState({
     scheduler:   { enabled: false, triggerDay: 31, intervalSecs: 30, lastRun: null },
@@ -552,7 +549,7 @@ export default function App() {
                 <button key={key} onClick={() => { setView(key); setActiveId(null); }} className={`w-full flex items-center gap-3 px-3 py-2 rounded-lg text-sm transition ${on ? "text-white" : "text-slate-600 hover:bg-slate-50"}`} style={on ? { background: "var(--brand)" } : {}}>
                   <Icon size={17} />
                   <span className="font-medium">{label}</span>
-                  <span className={`ml-auto text-[10px] ${on ? "text-white/55" : "text-slate-400"}`} style={{ fontFamily: "var(--mono)" }}>{code}</span>
+                  {/* reference code hidden — {code} */}
                 </button>
               );
             })}
@@ -583,7 +580,6 @@ export default function App() {
           {role === "LM"   && view === "dashboard" && active  && <CaseDetail rec={active} role={role} onBack={() => setActiveId(null)} onSubmitReview={submitReview} onSaveReviewDraft={saveReviewDraft} onEscalate={escalate} onSaveKpis={saveKpis} onRequestKpiUnlock={requestKpiUnlock} onSetOutcome={setLmOutcome} onEarlyConf={earlyConf} flash={flash} />}
           {role === "LM"   && view === "reviews"   && <ReviewQueue records={records} onOpen={(id) => { setActiveId(id); setView("dashboard"); }} onSaveKpis={saveKpis} onRequestKpiUnlock={requestKpiUnlock} onSubmitReview={submitReview} onSaveReviewDraft={saveReviewDraft} />}
           {role === "LM"   && view === "reports"   && <Reports records={records} role="LM" onReportExport={reportExport} />}
-          {role === "LM"   && view === "settings"  && <LMSettings permissions={lmPermissions} />}
 
           {role === "DR"   && view === "myprob"    && <DRHome records={records} asDr={asDr} setAsDr={setAsDr} onAccept={acceptReview} onSign={signLetter} onUpdateProfile={updateProfile} />}
 
@@ -591,7 +587,7 @@ export default function App() {
           {role === "HRBP" && view === "pipeline"  && !active && <HRBPPipeline records={records} onOpen={setActiveId} onAdd={addRecord} onReports={() => setView("reports")} />}
           {role === "HRBP" && view === "pipeline"  && active  && <CaseDetail rec={active} role={role} onBack={() => setActiveId(null)} onGenerate={generateLetter} onHrbpAck={hrbpAcknowledge} onReassignLM={reassignLM} onApproveKpiUnlock={approveKpiUnlock} onApproveEarlyConf={approveEarlyConf} allRecords={records} flash={flash} />}
           {role === "HRBP" && view === "sla"       && <SLATracker records={records} onOpen={(id) => { setActiveId(id); setView("pipeline"); }} />}
-          {/* {role === "HRBP" && view === "audit"     && <AuditTrail audit={audit} records={records} onExportLog={(detail) => log(ev("HRBP", "export", `F-08: ${detail}`, ""))} />} */}
+          {role === "HRBP" && view === "audit"     && <AuditTrail audit={audit} records={records} onExportLog={(detail) => log(ev("HRBP", "export", `F-08: ${detail}`, ""))} />}
           {role === "HRBP" && view === "reports"   && <Reports records={records} role="HRBP" onReportExport={reportExport} />}
           {role === "HRBP" && view === "notifications" && <NotificationCenter />}
           {role === "HRBP" && view === "console"   && <SystemConsole records={records} lmPermissions={lmPermissions} setLmPermissions={setLmPermissions} automations={automations} />}
@@ -601,8 +597,9 @@ export default function App() {
 
           {role === "LEAD" && view === "reports"   && <Reports records={records} role="LEAD" onReportExport={reportExport} />}
 
+
           {role === "ADMIN" && view === "console"   && <SystemConsole records={records} lmPermissions={lmPermissions} setLmPermissions={setLmPermissions} automations={automations} onPatchAutomation={patchAutomation} />}
-          {/* {role === "ADMIN" && view === "audit"     && <AuditTrail audit={audit} records={records} onExportLog={(detail) => log(ev("HRBP", "export", `F-08: ${detail}`, ""))} />} */}
+          {role === "ADMIN" && view === "audit"     && <AuditTrail audit={audit} records={records} onExportLog={(detail) => log(ev("HRBP", "export", `F-08: ${detail}`, ""))} />}
           {role === "ADMIN" && view === "notifications" && <NotificationCenter />}
         </main>
 
